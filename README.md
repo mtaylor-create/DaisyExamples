@@ -1,3 +1,8 @@
+<h1 align="center">Mike's fork of DaisyExamples</h1>
+You really don't want to use any of this.  Not meant for public use / stuff's almost certainly broken in here!
+You want this instead: https://github.com/electro-smith/DaisyExamples
+
+<hr>
 <h1 align="center">Daisy Examples</h1>
 
 <p align="center">

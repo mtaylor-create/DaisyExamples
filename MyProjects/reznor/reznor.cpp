@@ -8,16 +8,20 @@ static DaisyPod   pod;
 static Oscillator osc, lfo;
 static MoogLadder flt;
 static AdEnv      ad;
-static Parameter  pitchParam, cutoffParam, lfoParam, drywetParam;
+static Parameter  pitchParam, cutoffParam, lfoParam, 
+                  drywetParam, crushrateParam;
 
 static ReverbSc                                  rev;
-
+static Tone                                      tone;
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff;
 float oldk1, oldk2, k1, k2;
 bool  selfCycle;
 float drywet = 0;
+
+int   crushmod, crushcount;
+float crushsl, crushsr;
 
 void ConditionalParameter(float  oldVal,
                           float  newVal,
@@ -27,6 +31,8 @@ void ConditionalParameter(float  oldVal,
 void Controls();
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr);
+
+void GetCrushSample(float &outl, float &outr, float inl, float inr);
 
 void NextSamples(float &sig)
 {
@@ -56,7 +62,9 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         // right out
         //out[i + 1] = sig;
-
+        if(mode==3||mode==4){
+            GetCrushSample(sig, sig, sig, sig);
+        }
         GetReverbSample(out[i], out[i+1], sig, sig);
     }
 }
@@ -88,6 +96,7 @@ int main(void)
 
     rev.Init(sample_rate);
 
+    tone.Init(sample_rate);
 
     //Set filter parameters
     flt.SetFreq(10000);
@@ -116,7 +125,7 @@ int main(void)
     pitchParam.Init(pod.knob2, 50, 5000, pitchParam.LOGARITHMIC);
     lfoParam.Init(pod.knob1, 0.25, 1000, lfoParam.LOGARITHMIC);
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
-
+    crushrateParam.Init(pod.knob2, 1, 50, crushrateParam.LOGARITHMIC);
 
     //reverb parameters
     rev.SetLpFreq(18000.0f);
@@ -157,7 +166,7 @@ void UpdateEncoder()
     osc.SetWaveform(wave);
 
     mode += pod.encoder.Increment();
-    mode = (mode % 4 + 4) % 4;
+    mode = (mode % 5 + 5) % 5;
 }
 
 void UpdateKnobs()
@@ -184,11 +193,10 @@ void UpdateKnobs()
             lfo.SetFreq(lfoFreq);
             lfo.SetAmp(lfoAmp * 100);
         case 3:
-            //ConditionalParameter(oldk1, k1, lfoFreq, lfoParam.Process());
-            //ConditionalParameter(oldk2, k2, lfoAmp, pod.knob2.Process());
-            //lfo.SetFreq(lfoFreq);
-            //lfo.SetAmp(lfoAmp * 100);
-            //drywet = k1;
+            ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
+            tone.SetFreq(cutoff);
+            crushmod = (int)crushrateParam.Process();
+        case 4:
             ConditionalParameter(oldk1, k1, drywet, drywetParam.Process());
             rev.SetFeedback(k2);
         default: break;
@@ -197,7 +205,7 @@ void UpdateKnobs()
 
 void UpdateLeds()
 {
-    pod.led1.Set(mode == 2 || mode == 3, mode == 1 || mode == 3, mode == 0);
+    pod.led1.Set(mode == 2 || mode == 3, mode == 1 || mode == 3 || mode == 4, mode == 0 || mode == 4);
     pod.led2.Set(0, selfCycle, selfCycle);
 
     oldk1 = k1;
@@ -231,6 +239,19 @@ void Controls()
     UpdateLeds();
 
     UpdateButtons();
+}
+
+void GetCrushSample(float &outl, float &outr, float inl, float inr)
+{
+    crushcount++;
+    crushcount %= crushmod;
+    if(crushcount == 0)
+    {
+        crushsr = inr;
+        crushsl = inl;
+    }
+    outl = tone.Process(crushsl);
+    outr = tone.Process(crushsr);
 }
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr)

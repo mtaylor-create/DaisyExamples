@@ -1,5 +1,5 @@
 # Project Name
-TARGET = ex_reznor
+TARGET = reznor
 
 # Sources
 CPP_SOURCES = reznor.cpp

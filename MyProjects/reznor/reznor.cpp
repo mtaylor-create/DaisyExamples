@@ -1,5 +1,6 @@
 #include "daisysp.h"
 #include "daisy_pod.h"
+#include "dev/mcp23x17.h"
 
 using namespace daisysp;
 using namespace daisy;
@@ -14,6 +15,8 @@ static Parameter  pitchParam, cutoffParam, lfoParam,
 static ReverbSc                                  rev;
 static Tone                                      tone;
 
+static Mcp23017 mcp;
+
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff;
 float oldk1, oldk2, k1, k2;
@@ -21,6 +24,12 @@ bool  selfCycle;
 float drywet = 0;
 
 int   crushmod, crushcount;
+uint16_t   mcpOutput;
+uint8_t    dig0;
+uint8_t    dig1;
+uint8_t    dig2;
+uint8_t    dig3;
+
 float crushsl, crushsr;
 
 void ConditionalParameter(float  oldVal,
@@ -85,6 +94,9 @@ int main(void)
     lfoFreq   = 0.1f;
     selfCycle = false;
 
+
+
+
     //Init everything
     pod.Init();
     pod.SetAudioBlockSize(4);
@@ -131,11 +143,43 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
+
+    //I2CHandle::Config i2c_config;
+    //uint8_t           i2c_address;
+    //i2c_config.periph         = I2CHandle::Config::Peripheral::I2C_1;
+    //i2c_config.speed          = I2CHandle::Config::Speed::I2C_1MHZ;
+    //i2c_config.mode           = I2CHandle::Config::Mode::I2C_MASTER;
+    //i2c_config.pin_config.scl = {DSY_GPIOB, 8};
+    //i2c_config.pin_config.sda = {DSY_GPIOB, 9};
+    //i2c_address               = 0x27;
+
+    //Mcp23017Transport mcp_cfg;
+    //mcp_cfg.Init();
+    mcp.Init();
+    mcp.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcp.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+
+
+    while(1) {
+    mcpOutput = mcp.Read();
+    dig0 = mcpOutput % 0b10000;
+    dig0 = (dig0 > 7) ? dig0 - 6: dig0;
+    dig1 = (mcpOutput >> 4) % 0b10000;
+    dig1 = (dig1 > 7) ? dig1 - 6: dig1;
+    dig2 = (mcpOutput >> 8) % 0b10000;
+    dig2 = (dig2 > 7) ? dig2 - 6: dig2;
+    dig3 = (mcpOutput >> 12) % 0b10000;
+    dig3 = (dig3 > 7) ? dig3 - 6: dig3;
+    selfCycle = true;
+    }
+
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
-    while(1) {}
+    while(1) {
+    mcpOutput = mcp.Read();
+    }
 }
 
 //Updates values if knob had changed

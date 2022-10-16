@@ -24,9 +24,11 @@ bool  selfCycle;
 float drywet = 0;
 
 int   crushmod, crushcount;
-int   panelInputA;
 
 float crushsl, crushsr;
+
+int   panelInputA;
+int   lastUpdate;
 
 void ConditionalParameter(float  oldVal,
                           float  newVal,
@@ -156,16 +158,17 @@ int main(void)
     mcp.Init();
     mcp.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
     mcp.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
-    while(1) {
+    //while(1) {
     panelInputA = getPanel(mcp);
-    selfCycle = true;
-    }
+    //selfCycle = true;
+    //}
 
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
     while(1) {
+    panelInputA = getPanel(mcp);
     }
 }
 
@@ -208,7 +211,7 @@ void UpdateKnobs()
     switch(mode)
     {
         case 0:
-            ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
+            //ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
             ConditionalParameter(oldk2, k2, oscFreq, pitchParam.Process());
             flt.SetFreq(cutoff);
             break;
@@ -270,6 +273,9 @@ void Controls()
     UpdateLeds();
 
     UpdateButtons();
+
+    //panelInputA = getPanel(mcp);
+    cutoff = panelInputA;
 }
 
 void GetCrushSample(float &outl, float &outr, float inl, float inr)

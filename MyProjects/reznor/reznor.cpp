@@ -28,6 +28,7 @@ int   crushmod, crushcount;
 float crushsl, crushsr;
 
 int   panelInputA;
+int   lastDigit;
 int   lastUpdate;
 
 // struct Config
@@ -105,6 +106,17 @@ int getPanel(Mcp23017 mcp)
     return dig0 + 10*dig1 + 100*dig2 + 1000*dig3;
 }
 
+int getSingleDigit(Mcp23017 mcp)
+{
+    uint16_t mcpOutput = mcp.Read();
+    int i = 0;
+    while (mcpOutput > 0) {
+        mcpOutput = mcpOutput >> 1;
+        i++;
+    }
+    return (i+1)%10;
+}
+
 int main(void)
 {
     // Set global variables
@@ -172,9 +184,7 @@ int main(void)
 
     Mcp23017::Config mcpt;
     mcpt.transport_config.Defaults();
-    mcpt.transport_config.i2c_address = 0b100111;
-    //Mcp23017Transport::Config config;
-    //config.Defaults();
+    mcpt.transport_config.i2c_address = 0b100011;
     mcp.Init(mcpt);
 
     //mcp.Init();
@@ -190,7 +200,8 @@ int main(void)
     pod.StartAudio(AudioCallback);
 
     while(1) {
-    panelInputA = getPanel(mcp);
+    //panelInputA = getPanel(mcp);
+    lastDigit = getSingleDigit(mcp);
     }
 }
 

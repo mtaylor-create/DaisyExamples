@@ -15,8 +15,7 @@ static Parameter  pitchParam, cutoffParam, lfoParam,
 static ReverbSc                                  rev;
 static Tone                                      tone;
 
-static Mcp23017 mcpA0;
-static Mcp23017 mcpA1;
+static Mcp23017 panelA[2];
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff;
@@ -78,7 +77,24 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
     }
 }
 
-int getPanelDigits(Mcp23017 mcp)
+void configPanel(Mcp23017 mcp[2], int addr0, int addr1)
+{
+    Mcp23017::Config mcpt0;
+    mcpt0.transport_config.Defaults();
+    mcpt0.transport_config.i2c_address = addr0;//0b100111;
+    mcp[0].Init(mcpt0);
+    mcp[0].PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcp[0].PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+
+    Mcp23017::Config mcpt1;
+    mcpt1.transport_config.Defaults();
+    mcpt1.transport_config.i2c_address = addr1;//0b100011;
+    mcp[1].Init(mcpt1);
+    mcp[1].PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcp[1].PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+}
+
+int getPanelLSDs(Mcp23017 mcp)
 {
     uint16_t mcpOutput = mcp.Read();
     uint8_t dig0 = mcpOutput % 0b10000;
@@ -101,6 +117,11 @@ int getPanelMSD(Mcp23017 mcp)
         i++;
     }
     return (i+1)%10;
+}
+
+int getPanelDigits(Mcp23017 mcp[2])
+{
+    return getPanelLSDs(mcp[0]) + 10000*getPanelMSD(mcp[1]);
 }
 
 int main(void)
@@ -168,28 +189,16 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    Mcp23017::Config mcptA0;
-    mcptA0.transport_config.Defaults();
-    mcptA0.transport_config.i2c_address = 0b100111;
-    mcpA0.Init(mcptA0);
-    mcpA0.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
-    mcpA0.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+    configPanel(panelA, 0b100111, 0b100011);
 
-    Mcp23017::Config mcptA1;
-    mcptA1.transport_config.Defaults();
-    mcptA1.transport_config.i2c_address = 0b100011;
-    mcpA1.Init(mcptA1);
-    mcpA1.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
-    mcpA1.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
-
-    panelInputA = getPanelDigits(mcpA0) + 10000*getPanelMSD(mcpA1);
+    panelInputA = getPanelDigits(panelA);
 
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
     while(1) {
-    panelInputA = getPanelDigits(mcpA0) + 10000*getPanelMSD(mcpA1);
+    panelInputA = getPanelDigits(panelA);
     int bundt = true;
     }
 }

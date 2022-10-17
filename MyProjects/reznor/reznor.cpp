@@ -15,7 +15,8 @@ static Parameter  pitchParam, cutoffParam, lfoParam,
 static ReverbSc                                  rev;
 static Tone                                      tone;
 
-static Mcp23017 mcp;
+static Mcp23017 mcpA0;
+static Mcp23017 mcpA1;
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff;
@@ -27,24 +28,9 @@ int   crushmod, crushcount;
 
 float crushsl, crushsr;
 
-int   panelInputA;
+int   panelInputA, panelInputB;
 int   lastDigit;
 int   lastUpdate;
-
-// struct Config
-//     {
-//         I2CHandle::Config i2c_config;
-//         uint8_t           i2c_address;
-//         void              Defaults()
-//         {
-//             i2c_config.periph         = I2CHandle::Config::Peripheral::I2C_1;
-//             i2c_config.speed          = I2CHandle::Config::Speed::I2C_1MHZ;
-//             i2c_config.mode           = I2CHandle::Config::Mode::I2C_MASTER;
-//             i2c_config.pin_config.scl = {DSY_GPIOB, 8};
-//             i2c_config.pin_config.sda = {DSY_GPIOB, 9};
-//             i2c_address               = 0x27;
-//         }
-//     };
 
 void ConditionalParameter(float  oldVal,
                           float  newVal,
@@ -92,7 +78,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
     }
 }
 
-int getPanel(Mcp23017 mcp)
+int getPanelDigits(Mcp23017 mcp)
 {
     uint16_t mcpOutput = mcp.Read();
     uint8_t dig0 = mcpOutput % 0b10000;
@@ -106,7 +92,7 @@ int getPanel(Mcp23017 mcp)
     return dig0 + 10*dig1 + 100*dig2 + 1000*dig3;
 }
 
-int getSingleDigit(Mcp23017 mcp)
+int getPanelMSD(Mcp23017 mcp)
 {
     uint16_t mcpOutput = mcp.Read();
     int i = 0;
@@ -182,26 +168,29 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    Mcp23017::Config mcpt;
-    mcpt.transport_config.Defaults();
-    mcpt.transport_config.i2c_address = 0b100011;
-    mcp.Init(mcpt);
+    Mcp23017::Config mcptA0;
+    mcptA0.transport_config.Defaults();
+    mcptA0.transport_config.i2c_address = 0b100111;
+    mcpA0.Init(mcptA0);
+    mcpA0.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcpA0.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
 
-    //mcp.Init();
-    mcp.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
-    mcp.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
-    //while(1) {
-    panelInputA = getPanel(mcp);
-    //selfCycle = true;
-    //}
+    Mcp23017::Config mcptA1;
+    mcptA1.transport_config.Defaults();
+    mcptA1.transport_config.i2c_address = 0b100011;
+    mcpA1.Init(mcptA1);
+    mcpA1.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcpA1.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+
+    panelInputA = getPanelDigits(mcpA0) + 10000*getPanelMSD(mcpA1);
 
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
     while(1) {
-    //panelInputA = getPanel(mcp);
-    lastDigit = getSingleDigit(mcp);
+    panelInputA = getPanelDigits(mcpA0) + 10000*getPanelMSD(mcpA1);
+    int bundt = true;
     }
 }
 
@@ -307,8 +296,7 @@ void Controls()
 
     UpdateButtons();
 
-    //panelInputA = getPanel(mcp);
-    cutoff = panelInputA;
+    cutoff = panelInputA / 10;
 }
 
 void GetCrushSample(float &outl, float &outr, float inl, float inr)

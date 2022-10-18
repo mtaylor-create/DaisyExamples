@@ -9,7 +9,7 @@ static DaisyPod   pod;
 static Oscillator osc, lfo;
 static MoogLadder flt;
 static AdEnv      ad;
-static Parameter  pitchParam, cutoffParam, lfoParam, 
+static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
                   drywetParam, crushrateParam;
 
 static ReverbSc                                  rev;
@@ -18,7 +18,8 @@ static Tone                                      tone;
 static Mcp23017 panelA[2];
 
 int   wave, mode;
-float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff;
+float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
+float revFeedback;
 float oldk1, oldk2, k1, k2;
 bool  selfCycle;
 float drywet = 0;
@@ -40,7 +41,7 @@ void Controls();
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr);
 
-void GetCrushSample(float &outl, float &outr, float inl, float inr);
+float GetCrushSample(float sig);
 
 void NextSamples(float &sig)
 {
@@ -70,10 +71,12 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
 
         // right out
         //out[i + 1] = sig;
-        if(mode==3||mode==4){
-            GetCrushSample(sig, sig, sig, sig);
-        }
+        //if(mode==3||mode==4){
+        //if(crushmod > 1){
+        //sig = GetCrushSample(sig);
+        //}
         GetReverbSample(out[i], out[i+1], sig, sig);
+        int bundt = true;
     }
 }
 
@@ -242,7 +245,7 @@ void UpdateKnobs()
     switch(mode)
     {
         case 0:
-            //ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
+            ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
             ConditionalParameter(oldk2, k2, oscFreq, pitchParam.Process());
             flt.SetFreq(cutoff);
             break;
@@ -257,13 +260,17 @@ void UpdateKnobs()
             ConditionalParameter(oldk2, k2, lfoAmp, pod.knob2.Process());
             lfo.SetFreq(lfoFreq);
             lfo.SetAmp(lfoAmp * 100);
+            break;
         case 3:
-            ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
-            tone.SetFreq(cutoff);
-            crushmod = (int)crushrateParam.Process();
+            //ConditionalParameter(oldk1, k1, crushCutoff, crushCutoffParam.Process());
+            //tone.SetFreq(crushCutoff);
+            //crushmod = (int)crushrateParam.Process();
+            break;
         case 4:
             ConditionalParameter(oldk1, k1, drywet, drywetParam.Process());
-            rev.SetFeedback(k2);
+            ConditionalParameter(oldk2, k2, revFeedback, pod.knob2.Process());
+            rev.SetFeedback(revFeedback);
+            break;
         default: break;
     }
 }
@@ -305,20 +312,20 @@ void Controls()
 
     UpdateButtons();
 
-    cutoff = panelInputA / 10;
+    //cutoff = panelInputA / 10;
 }
 
-void GetCrushSample(float &outl, float &outr, float inl, float inr)
+float GetCrushSample(float sig)
 {
     crushcount++;
     crushcount %= crushmod;
     if(crushcount == 0)
     {
-        crushsr = inr;
-        crushsl = inl;
+        crushsr = sig;
+        //crushsl = inl;
     }
-    outl = tone.Process(crushsl);
-    outr = tone.Process(crushsr);
+    //outl = tone.Process(crushsl);
+    return tone.Process(crushsr);
 }
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr)

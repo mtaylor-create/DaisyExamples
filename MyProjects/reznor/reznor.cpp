@@ -24,7 +24,9 @@ float oldk1, oldk2, k1, k2;
 bool  selfCycle;
 float drywet = 0;
 
-int   crushmod, crushcount;
+int   crushcount = 0;
+float crushmod = 1;
+float crushedSig;
 
 float crushsl, crushsr;
 
@@ -73,7 +75,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         //out[i + 1] = sig;
         //if(mode==3||mode==4){
         //if(crushmod > 1){
-        //sig = GetCrushSample(sig);
+        sig = GetCrushSample(sig);
         //}
         GetReverbSample(out[i], out[i+1], sig, sig);
         int bundt = true;
@@ -183,10 +185,11 @@ int main(void)
 
     //set parameter parameters
     cutoffParam.Init(pod.knob1, 100, 20000, cutoffParam.LOGARITHMIC);
+    crushCutoffParam.Init(pod.knob1, 600, 30000, crushCutoffParam.LOGARITHMIC);
     pitchParam.Init(pod.knob2, 50, 5000, pitchParam.LOGARITHMIC);
     lfoParam.Init(pod.knob1, 0.25, 1000, lfoParam.LOGARITHMIC);
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
-    crushrateParam.Init(pod.knob2, 1, 50, crushrateParam.LOGARITHMIC);
+    crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
 
     //reverb parameters
     rev.SetLpFreq(18000.0f);
@@ -262,8 +265,9 @@ void UpdateKnobs()
             lfo.SetAmp(lfoAmp * 100);
             break;
         case 3:
-            //ConditionalParameter(oldk1, k1, crushCutoff, crushCutoffParam.Process());
-            //tone.SetFreq(crushCutoff);
+            ConditionalParameter(oldk1, k1, crushCutoff, crushCutoffParam.Process());
+            ConditionalParameter(oldk2, k2, crushmod, crushrateParam.Process());
+            tone.SetFreq(crushCutoff);
             //crushmod = (int)crushrateParam.Process();
             break;
         case 4:
@@ -317,15 +321,19 @@ void Controls()
 
 float GetCrushSample(float sig)
 {
-    crushcount++;
-    crushcount %= crushmod;
-    if(crushcount == 0)
-    {
-        crushsr = sig;
-        //crushsl = inl;
+    if (crushmod<=1) {
+        return sig;
     }
-    //outl = tone.Process(crushsl);
-    return tone.Process(crushsr);
+    crushcount++;
+    //crushcount %= (int)crushmod;
+    if(crushcount > crushmod)
+    {
+        crushedSig = sig;
+        crushcount = 0;
+    }
+    crushedSig = tone.Process(crushedSig);
+    return crushedSig;
+    //return tone.Process(crushedSig);
 }
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr)

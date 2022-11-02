@@ -6,6 +6,7 @@ using namespace daisysp;
 using namespace daisy;
 
 static DaisyPod   pod;
+DaisySeed hardware;
 static Oscillator osc, lfo;
 static MoogLadder flt;
 static AdEnv      ad;
@@ -14,6 +15,10 @@ static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam,
 
 static ReverbSc                                  rev;
 static Tone                                      tone;
+
+ClockedNoise noise;
+FractalRandomGenerator<ClockedNoise, 5> fract;
+
 
 static Mcp23017 panelA[2];
 
@@ -54,6 +59,17 @@ void NextSamples(float &sig)
 
     sig = osc.Process();
     sig = flt.Process(sig);
+
+    if(wave == 3)
+    {
+        //noise.SetFreq(fabsf(oscFreq + vibrato));
+        //sig = noise.Process();
+
+        fract.SetFreq(fabsf(oscFreq));
+        fract.SetColor(fabsf(cutoff/20000));
+        sig = fract.Process();
+    }
+    
     sig *= ad_out;
 }
 
@@ -141,15 +157,16 @@ int main(void)
     attack    = .01f;
     release   = .2f;
     cutoff    = 10000;
-    lfoAmp    = 1.0f;
+    lfoAmp    = .01f;
     lfoFreq   = 0.1f;
     selfCycle = false;
 
-
-
-
     //Init everything
     pod.Init();
+    AdcChannelConfig adcConfig;
+    adcConfig.InitSingle(pod.seed.GetPin(16));
+    //pod.seed.adc.Init(&adcConfig, 1);
+
     pod.SetAudioBlockSize(4);
     sample_rate = pod.AudioSampleRate();
     osc.Init(sample_rate);
@@ -183,6 +200,10 @@ int main(void)
     ad.SetMin(0);
     ad.SetCurve(0.5);
 
+    //set noise params
+    fract.Init(sample_rate);
+    fract.SetFreq(sample_rate / 10.f);
+
     //set parameter parameters
     cutoffParam.Init(pod.knob1, 100, 20000, cutoffParam.LOGARITHMIC);
     crushCutoffParam.Init(pod.knob1, 600, 30000, crushCutoffParam.LOGARITHMIC);
@@ -191,20 +212,25 @@ int main(void)
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
     crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
 
+    //crush params
+    crushCutoff = 30000;
+    tone.SetFreq(crushCutoff);
+
+
     //reverb parameters
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    configPanel(panelA, 0b100111, 0b100011);
+    configPanel(panelA, 0b100110, 0b100010);  //<------------
 
-    panelInputA = getPanelDigits(panelA);
+    //panelInputA = getPanelDigits(panelA);  //<------------
 
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
     while(1) {
-    panelInputA = getPanelDigits(panelA);
+    panelInputA = getPanelDigits(panelA);  //<------------
     int bundt = true;
     }
 }
@@ -229,10 +255,10 @@ void UpdateEncoder()
     wave %= osc.WAVE_POLYBLEP_TRI;
 
     //skip ramp since it sounds like saw
-    if(wave == 3)
-    {
-        wave = 4;
-    }
+    //if(wave == 3)
+    //{
+    //    wave = 4;
+    //}
 
     osc.SetWaveform(wave);
 

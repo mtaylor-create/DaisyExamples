@@ -68,13 +68,6 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float sig;
         NextSamples(sig);
 
-        // left out
-        //out[i] = sig;
-
-        // right out
-        //out[i + 1] = sig;
-        //if(mode==3||mode==4){
-        //if(crushmod > 1){
         sig = GetCrushSample(sig);
         //}
         GetReverbSample(out[i], out[i+1], sig, sig);

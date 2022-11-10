@@ -8,10 +8,11 @@ using namespace daisy;
 static DaisyPod   pod;
 DaisySeed hardware;
 static Oscillator osc, lfo;
+static Oscillator osc1, osc2;
 static MoogLadder flt;
 static AdEnv      ad;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
-                  drywetParam, crushrateParam;
+                  drywetParam, crushrateParam, detuneParam;
 
 static ReverbSc                                  rev;
 static Tone                                      tone;
@@ -24,6 +25,7 @@ static Mcp23017 panelA[2];
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
+float detune;
 float revFeedback;
 float oldk1, oldk2, k1, k2;
 bool  selfCycle;
@@ -56,8 +58,12 @@ void NextSamples(float &sig)
     vibrato      = lfo.Process();
 
     osc.SetFreq(oscFreq + vibrato);
+    osc1.SetFreq(oscFreq + vibrato + detune);
+    osc2.SetFreq(oscFreq + vibrato - detune);
 
-    sig = osc.Process();
+
+
+    sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
     sig = flt.Process(sig);
 
     if(wave == 3)
@@ -170,6 +176,9 @@ int main(void)
     pod.SetAudioBlockSize(4);
     sample_rate = pod.AudioSampleRate();
     osc.Init(sample_rate);
+    osc1.Init(sample_rate);
+    osc2.Init(sample_rate);
+
     flt.Init(sample_rate);
     ad.Init(sample_rate);
     lfo.Init(sample_rate);
@@ -184,9 +193,16 @@ int main(void)
 
     // Set parameters for oscillator
     osc.SetWaveform(osc.WAVE_SAW);
+    osc1.SetWaveform(osc.WAVE_SAW);
+    osc2.SetWaveform(osc.WAVE_SAW);
+
     wave = osc.WAVE_SAW;
     osc.SetFreq(440);
     osc.SetAmp(1);
+    osc1.SetFreq(440);
+    osc1.SetAmp(1);
+    osc2.SetFreq(440);
+    osc2.SetAmp(1);
 
     // Set parameters for lfo
     lfo.SetWaveform(osc.WAVE_SIN);
@@ -211,6 +227,7 @@ int main(void)
     lfoParam.Init(pod.knob1, 0.25, 1000, lfoParam.LOGARITHMIC);
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
     crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
+    detuneParam.Init(pod.knob2, 0, 10, detuneParam.LINEAR);
 
     //crush params
     crushCutoff = 30000;
@@ -221,7 +238,8 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    configPanel(panelA, 0b100110, 0b100010);  //<------------
+    //configPanel(panelA, 0b100110, 0b100010);  //<------------
+    configPanel(panelA, 0b100000, 0b100000);  //<------------
 
     //panelInputA = getPanelDigits(panelA);  //<------------
 
@@ -261,9 +279,12 @@ void UpdateEncoder()
     //}
 
     osc.SetWaveform(wave);
+    osc1.SetWaveform(wave);
+    osc2.SetWaveform(wave);
+
 
     mode += pod.encoder.Increment();
-    mode = (mode % 5 + 5) % 5;
+    mode = (mode % 6 + 6) % 6;
 }
 
 void UpdateKnobs()
@@ -301,13 +322,18 @@ void UpdateKnobs()
             ConditionalParameter(oldk2, k2, revFeedback, pod.knob2.Process());
             rev.SetFeedback(revFeedback);
             break;
+        case 5:
+            ConditionalParameter(oldk2, k2, detune, detuneParam.Process());
+
         default: break;
     }
 }
 
 void UpdateLeds()
 {
-    pod.led1.Set(mode == 2 || mode == 3, mode == 1 || mode == 3 || mode == 4, mode == 0 || mode == 4);
+    pod.led1.Set(mode == 2 || mode == 3 || mode == 5, 
+                 mode == 1 || mode == 3 || mode == 4, 
+                 mode == 0 || mode == 4 || mode == 5);
     pod.led2.Set(0, selfCycle, selfCycle);
 
     oldk1 = k1;

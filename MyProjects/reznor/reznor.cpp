@@ -22,6 +22,7 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 
 
 static Mcp23017 panelA[2];
+static Mcp23017 mcpButtons[2];
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
@@ -38,6 +39,7 @@ float crushedSig;
 float crushsl, crushsr;
 
 int   panelInputA, panelInputB;
+int   mcpButtonState;
 int   lastDigit;
 int   lastUpdate;
 
@@ -95,6 +97,22 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         GetReverbSample(out[i], out[i+1], sig, sig);
         int bundt = true;
     }
+}
+
+void configMcpButtons(Mcp23017 mcp0, int addr0)
+{
+    Mcp23017::Config mcpt0;
+    mcpt0.transport_config.Defaults();
+    mcpt0.transport_config.i2c_address = addr0;//0b100111;
+    mcp0.Init(mcpt0);
+    mcp0.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
+    mcp0.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
+}
+
+int getMcpButtons(Mcp23017 mcp0)
+{
+    uint16_t mcpOutput = mcp0.Read();
+    return mcpOutput + 0;
 }
 
 void configPanel(Mcp23017 mcp[2], int addr0, int addr1)
@@ -232,16 +250,20 @@ int main(void)
     rev.SetFeedback(0.85f);
 
     //configPanel(panelA, 0b100110, 0b100010);  //<------------
-    configPanel(panelA, 0b100000, 0b100000);  //<------------
+    configPanel(mcpButtons, 0b100000, 0b100000);  //<------------
 
     //panelInputA = getPanelDigits(panelA);  //<------------
+
+    //configMcpButtons(mcpButtons, 0b100000);
 
     // start callback
     pod.StartAdc();
     pod.StartAudio(AudioCallback);
 
     while(1) {
-    panelInputA = getPanelDigits(panelA);  //<------------
+    //panelInputA = getPanelDigits(panelA);  //<------------
+    //mcpButtonState = getPanelLSDs(mcpButtons[0]);
+    mcpButtonState = getMcpButtons(mcpButtons[0]);
     int bundt = true;
     }
 }

@@ -23,7 +23,7 @@ int main(void)
     //This is our ADC configuration
     AdcChannelConfig adcConfig;
     //Configure pin 21 as an ADC input. This is where we'll read the knob.
-    adcConfig.InitSingle(hardware.GetPin(21));
+    adcConfig.InitSingle(hardware.GetPin(15));
 
     //Initialize the adc with the config we just made
     hardware.adc.Init(&adcConfig, 1);
@@ -34,7 +34,8 @@ int main(void)
     for(;;)
     {
         // Set the onboard LED to the value we read from the knob
-        led1.Set(hardware.adc.GetFloat(0));
+        float thisVal = hardware.adc.GetFloat(0);
+        led1.Set(thisVal);
 
         //Update the led to reflect the set value
         led1.Update();

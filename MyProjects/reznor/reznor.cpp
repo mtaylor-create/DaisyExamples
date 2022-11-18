@@ -23,6 +23,7 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 
 static Mcp23017 panelA[2];
 static Mcp23017 mcpButtons[2];
+int aaaKnobTest;
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
@@ -264,6 +265,7 @@ int main(void)
     //panelInputA = getPanelDigits(panelA);  //<------------
     //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
+    aaaKnobTest = pod.seed.adc.Get(1);
     int bundt = true;
     }
 }

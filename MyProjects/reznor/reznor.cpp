@@ -1,11 +1,11 @@
 #include "daisysp.h"
-#include "daisy_pod.h"
+#include "daisy_seed.h"
 #include "dev/mcp23x17.h"
 
 using namespace daisysp;
 using namespace daisy;
 
-static DaisyPod   pod;
+//static DaisyPod   pod;
 DaisySeed hardware;
 static Oscillator osc, lfo;
 static Oscillator osc1, osc2;
@@ -23,7 +23,12 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 
 static Mcp23017 panelA[2];
 static Mcp23017 mcpButtons[2];
-int aaaKnobTest;
+float aaaKnobTestA;
+float aaaKnobTestB;
+float aaaKnobTestC;
+float aaaKnobTestD;
+float aaaKnobTestE;
+
 
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
@@ -55,7 +60,7 @@ void GetReverbSample(float &outl, float &outr, float inl, float inr);
 
 float GetCrushSample(float sig);
 
-void NextSamples(float &sig)
+/* void NextSamples(float &sig)
 {
     float ad_out = ad.Process();
     vibrato      = lfo.Process();
@@ -86,7 +91,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                           AudioHandle::InterleavingOutputBuffer out,
                           size_t                                size)
 {
-    Controls();
+    //Controls();    <------------------------add back in
 
     for(size_t i = 0; i < size; i += 2)
     {
@@ -98,7 +103,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         GetReverbSample(out[i], out[i+1], sig, sig);
         int bundt = true;
     }
-}
+} */
 
 void configMcpButtons(Mcp23017 mcp0, int addr0)
 {
@@ -180,13 +185,18 @@ int main(void)
     selfCycle = false;
 
     //Init everything
-    pod.Init();
-    AdcChannelConfig adcConfig;
-    adcConfig.InitSingle(pod.seed.GetPin(16));
-    //pod.seed.adc.Init(&adcConfig, 1);
+    hardware.Init();
+    AdcChannelConfig adcConfig[5];
+    adcConfig[0].InitSingle(hardware.GetPin(19));
+    adcConfig[1].InitSingle(hardware.GetPin(18));
+    adcConfig[2].InitSingle(hardware.GetPin(17));
+    adcConfig[3].InitSingle(hardware.GetPin(16));
+    adcConfig[4].InitSingle(hardware.GetPin(15));
+    hardware.adc.Init(adcConfig, 5);
+    hardware.adc.Start();
 
-    pod.SetAudioBlockSize(4);
-    sample_rate = pod.AudioSampleRate();
+    hardware.SetAudioBlockSize(4);
+    sample_rate = hardware.AudioSampleRate();
     osc.Init(sample_rate);
     osc1.Init(sample_rate);
     osc2.Init(sample_rate);
@@ -233,13 +243,13 @@ int main(void)
     fract.SetFreq(sample_rate / 10.f);
 
     //set parameter parameters
-    cutoffParam.Init(pod.knob1, 100, 20000, cutoffParam.LOGARITHMIC);
+    /* cutoffParam.Init(pod.knob1, 100, 20000, cutoffParam.LOGARITHMIC);
     crushCutoffParam.Init(pod.knob1, 600, 30000, crushCutoffParam.LOGARITHMIC);
     pitchParam.Init(pod.knob2, 50, 5000, pitchParam.LOGARITHMIC);
     lfoParam.Init(pod.knob1, 0.25, 1000, lfoParam.LOGARITHMIC);
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
     crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
-    detuneParam.Init(pod.knob2, 0, 10, detuneParam.LINEAR);
+    detuneParam.Init(pod.knob2, 0, 10, detuneParam.LINEAR); */
 
     //crush params
     crushCutoff = 30000;
@@ -258,14 +268,22 @@ int main(void)
     //configMcpButtons(mcpButtons, 0b100000);
 
     // start callback
-    pod.StartAdc();
-    pod.StartAudio(AudioCallback);
+    //hardware.StartAdc();
+
+
+    //hardware.StartAudio(AudioCallback);
 
     while(1) {
     //panelInputA = getPanelDigits(panelA);  //<------------
     //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
-    aaaKnobTest = pod.seed.adc.Get(1);
+    aaaKnobTestA = hardware.adc.GetFloat(0);
+    aaaKnobTestB = hardware.adc.GetFloat(1);
+    aaaKnobTestC = hardware.adc.GetFloat(2);
+    aaaKnobTestD = hardware.adc.GetFloat(3);
+    aaaKnobTestE = hardware.adc.GetFloat(4);
+
+
     int bundt = true;
     }
 }
@@ -284,7 +302,7 @@ void ConditionalParameter(float  oldVal,
 
 
 //Controls Helpers
-void UpdateEncoder()
+/* void UpdateEncoder()
 {
     wave += pod.encoder.RisingEdge();
     wave %= osc.WAVE_POLYBLEP_TRI;
@@ -410,4 +428,4 @@ void GetReverbSample(float &outl, float &outr, float inl, float inr)
     rev.Process(inl, inr, &outl, &outr);
     outl = drywet * outl + (1 - drywet) * inl;
     outr = drywet * outr + (1 - drywet) * inr;
-}
+} */

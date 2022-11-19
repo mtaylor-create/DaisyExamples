@@ -23,11 +23,12 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 
 static Mcp23017 panelA[2];
 static Mcp23017 mcpButtons[2];
-float aaaKnobTestA;
-float aaaKnobTestB;
-float aaaKnobTestC;
-float aaaKnobTestD;
-float aaaKnobTestE;
+float aaaKnobA;
+float aaaKnobB;
+float aaaKnobC;
+float aaaKnobD;
+float aaaKnobE;
+float aaaPanelA, aaaPanelB, aaaPanelC;
 
 
 int   wave, mode;
@@ -186,13 +187,16 @@ int main(void)
 
     //Init everything
     hardware.Init();
-    AdcChannelConfig adcConfig[5];
+    AdcChannelConfig adcConfig[8];
     adcConfig[0].InitSingle(hardware.GetPin(19));
     adcConfig[1].InitSingle(hardware.GetPin(18));
     adcConfig[2].InitSingle(hardware.GetPin(17));
     adcConfig[3].InitSingle(hardware.GetPin(16));
     adcConfig[4].InitSingle(hardware.GetPin(15));
-    hardware.adc.Init(adcConfig, 5);
+    adcConfig[5].InitSingle(hardware.GetPin(20));
+    adcConfig[6].InitSingle(hardware.GetPin(21));
+    adcConfig[7].InitSingle(hardware.GetPin(24));
+    hardware.adc.Init(adcConfig, 8);
     hardware.adc.Start();
 
     hardware.SetAudioBlockSize(4);
@@ -277,11 +281,14 @@ int main(void)
     //panelInputA = getPanelDigits(panelA);  //<------------
     //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
-    aaaKnobTestA = hardware.adc.GetFloat(0);
-    aaaKnobTestB = hardware.adc.GetFloat(1);
-    aaaKnobTestC = hardware.adc.GetFloat(2);
-    aaaKnobTestD = hardware.adc.GetFloat(3);
-    aaaKnobTestE = hardware.adc.GetFloat(4);
+    aaaKnobA = hardware.adc.GetFloat(0);
+    aaaKnobB = hardware.adc.GetFloat(1);
+    aaaKnobC = hardware.adc.GetFloat(2);
+    aaaKnobD = hardware.adc.GetFloat(3);
+    aaaKnobE = hardware.adc.GetFloat(4);
+    aaaPanelA = hardware.adc.GetFloat(5);
+    aaaPanelB = hardware.adc.GetFloat(6);
+    aaaPanelC = hardware.adc.GetFloat(7);
 
 
     int bundt = true;

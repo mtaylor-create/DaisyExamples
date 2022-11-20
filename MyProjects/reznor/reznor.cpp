@@ -4,6 +4,8 @@
 
 using namespace daisysp;
 using namespace daisy;
+using namespace daisy::seed;
+
 
 //static DaisyPod   pod;
 DaisySeed hardware;
@@ -29,6 +31,8 @@ float aaaKnobC;
 float aaaKnobD;
 float aaaKnobE;
 float aaaPanelA, aaaPanelB, aaaPanelC;
+
+GPIO LEDA, LEDB, LEDC, LEDD;
 
 
 int   wave, mode;
@@ -60,6 +64,13 @@ void Controls();
 void GetReverbSample(float &outl, float &outr, float inl, float inr);
 
 float GetCrushSample(float sig);
+
+//https://hackernoon.com/bit-manipulation-in-c-and-c-1cs2bux
+bool get_bit(int num, int position) 
+{
+	bool bit = num & (1 << position);
+	return bit;
+}
 
 /* void NextSamples(float &sig)
 {
@@ -199,6 +210,11 @@ int main(void)
     hardware.adc.Init(adcConfig, 8);
     hardware.adc.Start();
 
+    LEDA.Init(D7, GPIO::Mode::OUTPUT);
+    LEDB.Init(D8, GPIO::Mode::OUTPUT);
+    LEDC.Init(D9, GPIO::Mode::OUTPUT);
+    LEDD.Init(D10, GPIO::Mode::OUTPUT);
+
     hardware.SetAudioBlockSize(4);
     sample_rate = hardware.AudioSampleRate();
     osc.Init(sample_rate);
@@ -274,6 +290,12 @@ int main(void)
     // start callback
     //hardware.StartAdc();
 
+    DacHandle::Config dacCfg;
+	dacCfg.bitdepth = DacHandle::BitDepth::BITS_12;
+	dacCfg.buff_state = DacHandle::BufferState::ENABLED;
+	dacCfg.mode = DacHandle::Mode::POLLING;
+	dacCfg.chn = DacHandle::Channel::BOTH;
+	hardware.dac.Init(dacCfg);
 
     //hardware.StartAudio(AudioCallback);
 
@@ -290,8 +312,14 @@ int main(void)
     aaaPanelB = hardware.adc.GetFloat(6);
     aaaPanelC = hardware.adc.GetFloat(7);
 
+    hardware.dac.WriteValue(DacHandle::Channel::ONE, hardware.adc.GetFloat(2)*650); // CV0
+	hardware.dac.WriteValue(DacHandle::Channel::TWO, hardware.adc.GetFloat(1)*650);
 
-    int bundt = true;
+    LEDA.Write(get_bit(mcpButtonState, 0));
+    LEDB.Write(get_bit(mcpButtonState, 1));
+    LEDC.Write(get_bit(mcpButtonState, 2));
+    LEDD.Write(get_bit(mcpButtonState, 3));
+
     }
 }
 

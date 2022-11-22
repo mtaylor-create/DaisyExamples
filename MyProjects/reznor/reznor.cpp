@@ -24,13 +24,14 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 
 
 static Mcp23017 panelA[2];
+static Mcp23017 panelB[2];
 static Mcp23017 mcpButtons[2];
-float aaaKnobA;
-float aaaKnobB;
-float aaaKnobC;
-float aaaKnobD;
-float aaaKnobE;
-float aaaPanelA, aaaPanelB, aaaPanelC;
+float analogKnobA;
+float analogKnobB;
+float analogKnobC;
+float analogKnobD;
+float analogKnobE;
+float analogPanelA, analogPanelB, analogPanelC;
 
 GPIO LEDA, LEDB, LEDC, LEDD;
 
@@ -96,7 +97,7 @@ void NextSamples(float &sig)
         sig = fract.Process();
     }
     
-    //sig *= ad_out;
+    sig *= ad_out;
 }
 
 static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
@@ -251,7 +252,7 @@ int main(void)
 
     //Set envelope parameters
     ad.SetTime(ADENV_SEG_ATTACK, 0.01);
-    ad.SetTime(ADENV_SEG_DECAY, .2);
+    ad.SetTime(ADENV_SEG_DECAY, 1);
     ad.SetMax(1);
     ad.SetMin(0);
     ad.SetCurve(0.5);
@@ -278,7 +279,8 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    //configPanel(panelA, 0b100110, 0b100010);  //<------------
+    configPanel(panelA, 0b100110, 0b100010);  //<------------
+    configPanel(panelB, 0b100111, 0b100011);  //<------------
     configPanel(mcpButtons, 0b100000, 0b100000);  //<------------
 
     //panelInputA = getPanelDigits(panelA);  //<------------
@@ -298,17 +300,18 @@ int main(void)
     hardware.StartAudio(AudioCallback);
 
     while(1) {
-    //panelInputA = getPanelDigits(panelA);  //<------------
+    panelInputA = getPanelDigits(panelA);
+    panelInputB = getPanelDigits(panelB);
     //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
-    aaaKnobA = hardware.adc.GetFloat(0);
-    aaaKnobB = hardware.adc.GetFloat(1);
-    aaaKnobC = hardware.adc.GetFloat(2);
-    aaaKnobD = hardware.adc.GetFloat(3);
-    aaaKnobE = hardware.adc.GetFloat(4);
-    aaaPanelA = hardware.adc.GetFloat(5);
-    aaaPanelB = hardware.adc.GetFloat(6);
-    aaaPanelC = hardware.adc.GetFloat(7);
+    analogKnobA = hardware.adc.GetFloat(0);
+    analogKnobB = hardware.adc.GetFloat(1);
+    analogKnobC = hardware.adc.GetFloat(2);
+    analogKnobD = hardware.adc.GetFloat(3);
+    analogKnobE = hardware.adc.GetFloat(4);
+    analogPanelA = hardware.adc.GetFloat(5);
+    analogPanelB = hardware.adc.GetFloat(6);
+    analogPanelC = hardware.adc.GetFloat(7);
 
     hardware.dac.WriteValue(DacHandle::Channel::ONE, hardware.adc.GetFloat(2)*650); // CV0
 	hardware.dac.WriteValue(DacHandle::Channel::TWO, hardware.adc.GetFloat(1)*650);
@@ -317,6 +320,10 @@ int main(void)
     LEDB.Write(get_bit(mcpButtonState, 1));
     LEDC.Write(get_bit(mcpButtonState, 2));
     LEDD.Write(get_bit(mcpButtonState, 3));
+
+    if (!ad.IsRunning()) {
+        ad.Trigger();
+    }
 
     }
 }

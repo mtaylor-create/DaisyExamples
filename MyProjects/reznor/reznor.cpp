@@ -33,7 +33,7 @@ float analogKnobD;
 float analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
-GPIO LEDA, LEDB, LEDC, LEDD;
+GPIO LedA, LedB, LedC, LedD;
 
 
 int   wave, mode;
@@ -62,6 +62,8 @@ void ConditionalParameter(float  oldVal,
 
 void Controls();
 
+void UpdateMeters();
+
 void GetReverbSample(float &outl, float &outr, float inl, float inr);
 
 float GetCrushSample(float sig);
@@ -89,9 +91,6 @@ void NextSamples(float &sig)
 
     if(wave == 3)
     {
-        //noise.SetFreq(fabsf(oscFreq + vibrato));
-        //sig = noise.Process();
-
         fract.SetFreq(fabsf(oscFreq));
         fract.SetColor(fabsf(cutoff/20000));
         sig = fract.Process();
@@ -104,7 +103,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
                           AudioHandle::InterleavingOutputBuffer out,
                           size_t                                size)
 {
-    //Controls();    <------------------------add back in
+    Controls();
 
     for(size_t i = 0; i < size; i += 2)
     {
@@ -115,16 +114,6 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         GetReverbSample(out[i], out[i+1], sig, sig);
     }
 } 
-
-void configMcpButtons(Mcp23017 mcp0, int addr0)
-{
-    Mcp23017::Config mcpt0;
-    mcpt0.transport_config.Defaults();
-    mcpt0.transport_config.i2c_address = addr0;//0b100111;
-    mcp0.Init(mcpt0);
-    mcp0.PortMode(MCPPort::A, 0xFF, 0xFF, 0xFF);
-    mcp0.PortMode(MCPPort::B, 0xFF, 0xFF, 0xFF);
-}
 
 int getMcpButtons(Mcp23017 mcp0)
 {
@@ -209,10 +198,10 @@ int main(void)
     hardware.adc.Init(adcConfig, 8);
     hardware.adc.Start();
 
-    LEDA.Init(D7, GPIO::Mode::OUTPUT);
-    LEDB.Init(D8, GPIO::Mode::OUTPUT);
-    LEDC.Init(D9, GPIO::Mode::OUTPUT);
-    LEDD.Init(D10, GPIO::Mode::OUTPUT);
+    LedA.Init(D7, GPIO::Mode::OUTPUT);
+    LedB.Init(D8, GPIO::Mode::OUTPUT);
+    LedC.Init(D9, GPIO::Mode::OUTPUT);
+    LedD.Init(D10, GPIO::Mode::OUTPUT);
 
     hardware.SetAudioBlockSize(4);
     sample_rate = hardware.AudioSampleRate();
@@ -279,17 +268,11 @@ int main(void)
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
-    configPanel(panelA, 0b100110, 0b100010);  //<------------
-    configPanel(panelB, 0b100111, 0b100011);  //<------------
-    configPanel(mcpButtons, 0b100000, 0b100000);  //<------------
+    configPanel(panelA, 0b100110, 0b100010);  
+    configPanel(panelB, 0b100111, 0b100011);  
+    configPanel(mcpButtons, 0b100000, 0b100000);  
 
-    //panelInputA = getPanelDigits(panelA);  //<------------
-
-    //configMcpButtons(mcpButtons, 0b100000);
-
-    // start callback
-    //hardware.StartAdc();
-
+    // start DAC
     DacHandle::Config dacCfg;
 	dacCfg.bitdepth = DacHandle::BitDepth::BITS_12;
 	dacCfg.buff_state = DacHandle::BufferState::ENABLED;
@@ -297,6 +280,7 @@ int main(void)
 	dacCfg.chn = DacHandle::Channel::BOTH;
 	hardware.dac.Init(dacCfg);
 
+    // start audio callback
     hardware.StartAudio(AudioCallback);
 
     while(1) {
@@ -304,22 +288,21 @@ int main(void)
     panelInputB = getPanelDigits(panelB);
     //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
-    analogKnobA = hardware.adc.GetFloat(0);
-    analogKnobB = hardware.adc.GetFloat(1);
-    analogKnobC = hardware.adc.GetFloat(2);
-    analogKnobD = hardware.adc.GetFloat(3);
-    analogKnobE = hardware.adc.GetFloat(4);
-    analogPanelA = hardware.adc.GetFloat(5);
-    analogPanelB = hardware.adc.GetFloat(6);
-    analogPanelC = hardware.adc.GetFloat(7);
+    // analogKnobA = hardware.adc.GetFloat(0);
+    // analogKnobB = hardware.adc.GetFloat(1);
+    // analogKnobC = hardware.adc.GetFloat(2);
+    // analogKnobD = hardware.adc.GetFloat(3);
+    // analogKnobE = hardware.adc.GetFloat(4);
+    // analogPanelA = hardware.adc.GetFloat(5);
+    // analogPanelB = hardware.adc.GetFloat(6);
+    // analogPanelC = hardware.adc.GetFloat(7);
 
-    hardware.dac.WriteValue(DacHandle::Channel::ONE, hardware.adc.GetFloat(2)*650); // CV0
-	hardware.dac.WriteValue(DacHandle::Channel::TWO, hardware.adc.GetFloat(1)*650);
+    LedA.Write(get_bit(mcpButtonState, 0));
+    LedB.Write(get_bit(mcpButtonState, 1));
+    LedC.Write(get_bit(mcpButtonState, 2));
+    LedD.Write(get_bit(mcpButtonState, 3));
 
-    LEDA.Write(get_bit(mcpButtonState, 0));
-    LEDB.Write(get_bit(mcpButtonState, 1));
-    LEDC.Write(get_bit(mcpButtonState, 2));
-    LEDD.Write(get_bit(mcpButtonState, 3));
+    UpdateMeters();
 
     if (!ad.IsRunning()) {
         ad.Trigger();
@@ -428,24 +411,60 @@ void UpdateButtons()
     {
         selfCycle = !selfCycle;
     }
+}*/
+
+void UpdatePanels()
+{
+    
+}
+
+void UpdateButtons()
+{
+    
+}
+
+void UpdateKnobs()
+{
+    analogKnobA = hardware.adc.GetFloat(0);
+    analogKnobB = hardware.adc.GetFloat(1);
+    analogKnobC = hardware.adc.GetFloat(2);
+    analogKnobD = hardware.adc.GetFloat(3);
+    analogKnobE = hardware.adc.GetFloat(4);
+    analogPanelA = hardware.adc.GetFloat(5);
+    analogPanelB = hardware.adc.GetFloat(6);
+    analogPanelC = hardware.adc.GetFloat(7);
+
+    oscFreq = analogKnobA * 2000;
+    flt.SetFreq(analogKnobB * 20000);
+    flt.SetRes(analogKnobC);
+}
+
+void UpdateMeters()
+{
+    hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
+	hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
+}
+
+void UpdateLeds()
+{
+    LedA.Write(get_bit(mcpButtonState, 0));
+    LedB.Write(get_bit(mcpButtonState, 1));
+    LedC.Write(get_bit(mcpButtonState, 2));
+    LedD.Write(get_bit(mcpButtonState, 3));
 }
 
 void Controls()
 {
-    pod.ProcessAnalogControls();
-    pod.ProcessDigitalControls();
+    UpdatePanels();
 
-    UpdateEncoder();
+    UpdateButtons();
 
     UpdateKnobs();
 
     UpdateLeds();
-
-    UpdateButtons();
-
-    //cutoff = panelInputA / 10;
 }
 
+/*
 float GetCrushSample(float sig)
 {
     if (crushmod<=1) {

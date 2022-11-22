@@ -72,7 +72,7 @@ bool get_bit(int num, int position)
 	return bit;
 }
 
-/* void NextSamples(float &sig)
+void NextSamples(float &sig)
 {
     float ad_out = ad.Process();
     vibrato      = lfo.Process();
@@ -96,7 +96,7 @@ bool get_bit(int num, int position)
         sig = fract.Process();
     }
     
-    sig *= ad_out;
+    //sig *= ad_out;
 }
 
 static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
@@ -110,12 +110,10 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float sig;
         NextSamples(sig);
 
-        sig = GetCrushSample(sig);
-        //}
+        //sig = GetCrushSample(sig);
         GetReverbSample(out[i], out[i+1], sig, sig);
-        int bundt = true;
     }
-} */
+} 
 
 void configMcpButtons(Mcp23017 mcp0, int addr0)
 {
@@ -186,7 +184,7 @@ int main(void)
     float sample_rate;
     mode    = 0;
     vibrato = 0.0f;
-    oscFreq = 1000.0f;
+    oscFreq = 440.0f;
     oldk1 = oldk2 = 0;
     k1 = k2   = 0;
     attack    = .01f;
@@ -194,7 +192,7 @@ int main(void)
     cutoff    = 10000;
     lfoAmp    = .01f;
     lfoFreq   = 0.1f;
-    selfCycle = false;
+    selfCycle = true;
 
     //Init everything
     hardware.Init();
@@ -230,8 +228,8 @@ int main(void)
     tone.Init(sample_rate);
 
     //Set filter parameters
-    flt.SetFreq(10000);
-    flt.SetRes(0.8);
+    flt.SetFreq(15000);
+    flt.SetRes(0);
 
     // Set parameters for oscillator
     osc.SetWaveform(osc.WAVE_SAW);
@@ -297,7 +295,7 @@ int main(void)
 	dacCfg.chn = DacHandle::Channel::BOTH;
 	hardware.dac.Init(dacCfg);
 
-    //hardware.StartAudio(AudioCallback);
+    hardware.StartAudio(AudioCallback);
 
     while(1) {
     //panelInputA = getPanelDigits(panelA);  //<------------
@@ -456,11 +454,11 @@ float GetCrushSample(float sig)
     crushedSig = tone.Process(crushedSig);
     return crushedSig;
     //return tone.Process(crushedSig);
-}
+} */
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr)
 {
     rev.Process(inl, inr, &outl, &outr);
     outl = drywet * outl + (1 - drywet) * inl;
     outr = drywet * outr + (1 - drywet) * inr;
-} */
+}

@@ -25,6 +25,8 @@ static Mcp23017 mcpButtons[2];
 float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
+bool buttonTrigger, buttonCycle;
+
 // Outputs
 GPIO LedA, LedB, LedC, LedD;
 
@@ -51,7 +53,9 @@ void ConditionalParameter(float  oldVal,
 
 void Controls();
 
-void UpdateMeters();
+void updateMeters();
+
+void UpdateIndividualButtons();
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr);
 
@@ -273,15 +277,17 @@ int main(void)
     panelInputA = getPanelDigits(panelA);
     panelInputB = getPanelDigits(panelB);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
+    UpdateIndividualButtons();
 
-    LedA.Write(get_bit(mcpButtonState, 0));
-    LedB.Write(get_bit(mcpButtonState, 1));
-    LedC.Write(get_bit(mcpButtonState, 2));
-    LedD.Write(get_bit(mcpButtonState, 3));
+    // LedA.Write(get_bit(mcpButtonState, 0));
+    // LedB.Write(get_bit(mcpButtonState, 1));
+    // LedC.Write(get_bit(mcpButtonState, 2));
+    // LedD.Write(get_bit(mcpButtonState, 3));
 
-    UpdateMeters();
+    updateMeters();
 
-    if (!ad.IsRunning()) {
+    if (buttonTrigger || (buttonCycle && !ad.IsRunning())) {
+    //if (!ad.IsRunning()) {
         ad.Trigger();
     }
 
@@ -416,18 +422,25 @@ void UpdateKnobs()
     flt.SetRes(analogKnobC);
 }
 
-void UpdateMeters()
+void updateMeters()
 {
     hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
 	hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
 }
 
+void UpdateIndividualButtons()
+{
+    buttonTrigger = get_bit(mcpButtonState, 0);
+    buttonCycle = get_bit(mcpButtonState, 3);
+}
+
+
 void UpdateLeds()
 {
-    LedA.Write(get_bit(mcpButtonState, 0));
-    LedB.Write(get_bit(mcpButtonState, 1));
-    LedC.Write(get_bit(mcpButtonState, 2));
-    LedD.Write(get_bit(mcpButtonState, 3));
+    LedA.Write(buttonTrigger);
+    LedB.Write(buttonCycle);
+    LedC.Write(ad.IsRunning());
+    LedD.Write(ad.GetCurrentSegment() == 1);
 }
 
 void Controls()

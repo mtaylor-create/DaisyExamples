@@ -6,23 +6,19 @@ using namespace daisysp;
 using namespace daisy;
 using namespace daisy::seed;
 
-
-//static DaisyPod   pod;
-DaisySeed hardware;
-static Oscillator osc, lfo;
-static Oscillator osc1, osc2;
+// Daisy objects
+static DaisySeed hardware;
+static Oscillator osc, osc1, osc2, lfo;
 static MoogLadder flt;
 static AdEnv      ad;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
                   drywetParam, crushrateParam, detuneParam;
-
 static ReverbSc                                  rev;
 static Tone                                      tone;
-
 ClockedNoise noise;
 FractalRandomGenerator<ClockedNoise, 5> fract;
 
-
+// Controls
 static Mcp23017 panelA[2];
 static Mcp23017 panelB[2];
 static Mcp23017 mcpButtons[2];
@@ -33,9 +29,10 @@ float analogKnobD;
 float analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
+// Outputs
 GPIO LedA, LedB, LedC, LedD;
 
-
+// Globals
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
 float detune;
@@ -43,17 +40,13 @@ float revFeedback;
 float oldk1, oldk2, k1, k2;
 bool  selfCycle;
 float drywet = 0;
-
 int   crushcount = 0;
 float crushmod = 1;
 float crushedSig;
-
 float crushsl, crushsr;
 
 int   panelInputA, panelInputB;
 int   mcpButtonState;
-int   lastDigit;
-int   lastUpdate;
 
 void ConditionalParameter(float  oldVal,
                           float  newVal,
@@ -184,7 +177,7 @@ int main(void)
     lfoFreq   = 0.1f;
     selfCycle = true;
 
-    //Init everything
+    // Init everything
     hardware.Init();
     AdcChannelConfig adcConfig[8];
     adcConfig[0].InitSingle(hardware.GetPin(19));
@@ -208,20 +201,17 @@ int main(void)
     osc.Init(sample_rate);
     osc1.Init(sample_rate);
     osc2.Init(sample_rate);
-
     flt.Init(sample_rate);
     ad.Init(sample_rate);
     lfo.Init(sample_rate);
-
     rev.Init(sample_rate);
-
     tone.Init(sample_rate);
 
-    //Set filter parameters
+    // Filter params
     flt.SetFreq(15000);
     flt.SetRes(0);
 
-    // Set parameters for oscillator
+    // Osc params
     osc.SetWaveform(osc.WAVE_SAW);
     osc1.SetWaveform(osc.WAVE_SAW);
     osc2.SetWaveform(osc.WAVE_SAW);
@@ -234,19 +224,19 @@ int main(void)
     osc2.SetFreq(440);
     osc2.SetAmp(1);
 
-    // Set parameters for lfo
+    // LFO params
     lfo.SetWaveform(osc.WAVE_SIN);
     lfo.SetFreq(0.1);
     lfo.SetAmp(1);
 
-    //Set envelope parameters
+    // Envelope params
     ad.SetTime(ADENV_SEG_ATTACK, 0.01);
     ad.SetTime(ADENV_SEG_DECAY, 1);
     ad.SetMax(1);
     ad.SetMin(0);
     ad.SetCurve(0.5);
 
-    //set noise params
+    // Noise params
     fract.Init(sample_rate);
     fract.SetFreq(sample_rate / 10.f);
 
@@ -259,20 +249,20 @@ int main(void)
     crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
     detuneParam.Init(pod.knob2, 0, 10, detuneParam.LINEAR); */
 
-    //crush params
+    // Crush params
     crushCutoff = 30000;
     tone.SetFreq(crushCutoff);
 
-
-    //reverb parameters
+    // Reverb parameters
     rev.SetLpFreq(18000.0f);
     rev.SetFeedback(0.85f);
 
+    // Config i2c
     configPanel(panelA, 0b100110, 0b100010);  
     configPanel(panelB, 0b100111, 0b100011);  
     configPanel(mcpButtons, 0b100000, 0b100000);  
 
-    // start DAC
+    // Start DAC
     DacHandle::Config dacCfg;
 	dacCfg.bitdepth = DacHandle::BitDepth::BITS_12;
 	dacCfg.buff_state = DacHandle::BufferState::ENABLED;
@@ -280,22 +270,13 @@ int main(void)
 	dacCfg.chn = DacHandle::Channel::BOTH;
 	hardware.dac.Init(dacCfg);
 
-    // start audio callback
+    // Start audio callback
     hardware.StartAudio(AudioCallback);
 
     while(1) {
     panelInputA = getPanelDigits(panelA);
     panelInputB = getPanelDigits(panelB);
-    //mcpButtonState = getPanelLSDs(mcpButtons[0]);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
-    // analogKnobA = hardware.adc.GetFloat(0);
-    // analogKnobB = hardware.adc.GetFloat(1);
-    // analogKnobC = hardware.adc.GetFloat(2);
-    // analogKnobD = hardware.adc.GetFloat(3);
-    // analogKnobE = hardware.adc.GetFloat(4);
-    // analogPanelA = hardware.adc.GetFloat(5);
-    // analogPanelB = hardware.adc.GetFloat(6);
-    // analogPanelC = hardware.adc.GetFloat(7);
 
     LedA.Write(get_bit(mcpButtonState, 0));
     LedB.Write(get_bit(mcpButtonState, 1));

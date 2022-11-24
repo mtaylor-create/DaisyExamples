@@ -22,11 +22,7 @@ FractalRandomGenerator<ClockedNoise, 5> fract;
 static Mcp23017 panelA[2];
 static Mcp23017 panelB[2];
 static Mcp23017 mcpButtons[2];
-float analogKnobA;
-float analogKnobB;
-float analogKnobC;
-float analogKnobD;
-float analogKnobE;
+float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
 // Outputs

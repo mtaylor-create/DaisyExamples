@@ -9,7 +9,8 @@ using namespace daisy::seed;
 // Daisy objects
 static DaisySeed hardware;
 static Oscillator osc, osc1, osc2, lfo;
-static MoogLadder flt;
+//static MoogLadder flt;
+static Svf flt;
 static AdEnv      ad;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
                   drywetParam, crushrateParam, detuneParam;
@@ -25,7 +26,9 @@ static Mcp23017 mcpButtons[2];
 float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
-bool buttonTrigger, buttonCycle;
+bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
+
+float filterCutoff, filterModEnv, filterMax;
 
 // Outputs
 GPIO LedA, LedB, LedC, LedD;
@@ -77,10 +80,10 @@ void NextSamples(float &sig)
     osc1.SetFreq(oscFreq + vibrato + detune);
     osc2.SetFreq(oscFreq + vibrato - detune);
 
-
-
+    flt.SetFreq(std::min(filterMax, filterCutoff + (ad_out * filterModEnv)));
     sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
-    sig = flt.Process(sig);
+    flt.Process(sig);
+    sig = flt.Low();
 
     if(wave == 3)
     {
@@ -172,10 +175,13 @@ int main(void)
     k1 = k2   = 0;
     attack    = .01f;
     release   = .2f;
+    filterCutoff = 15000;
+    filterMax = 32000;
     cutoff    = 10000;
     lfoAmp    = .01f;
     lfoFreq   = 0.1f;
     selfCycle = true;
+    filterModEnv = 0;
 
     // Init everything
     hardware.Init();
@@ -208,8 +214,9 @@ int main(void)
     tone.Init(sample_rate);
 
     // Filter params
-    flt.SetFreq(15000);
+    flt.SetFreq(filterCutoff);
     flt.SetRes(0);
+    flt.SetDrive(0.8);
 
     // Osc params
     osc.SetWaveform(osc.WAVE_SAW);
@@ -418,8 +425,30 @@ void UpdateKnobs()
     analogPanelC = hardware.adc.GetFloat(7);
 
     oscFreq = analogKnobA * 2000;
-    flt.SetFreq(analogKnobB * 20000);
-    flt.SetRes(analogKnobC);
+
+    // Env section
+    if (buttonAtt) {
+        ad.SetTime(ADENV_SEG_ATTACK, analogKnobB);
+    }
+    if (buttonRel) {
+        ad.SetTime(ADENV_SEG_DECAY, analogKnobB);
+    }
+
+    // Filter section
+    if (buttonRes) {
+        flt.SetRes(analogKnobD);
+
+    }
+    else {
+        filterCutoff = analogKnobD * 20000;
+    }
+
+    if (buttonFmodEnv) {
+        filterModEnv = filterMax*(analogKnobE - 0.5);
+        // if (filterModEnv > 0) {
+        //     filterModEnv *= 10;
+        // }
+    }
 }
 
 void updateMeters()
@@ -432,6 +461,10 @@ void UpdateIndividualButtons()
 {
     buttonTrigger = get_bit(mcpButtonState, 0);
     buttonCycle = get_bit(mcpButtonState, 3);
+    buttonRes = get_bit(mcpButtonState, 12);
+    buttonAtt = get_bit(mcpButtonState, 4);
+    buttonRel = get_bit(mcpButtonState, 5);
+    buttonFmodEnv = get_bit(mcpButtonState, 9);
 }
 
 

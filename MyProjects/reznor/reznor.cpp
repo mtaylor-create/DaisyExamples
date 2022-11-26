@@ -191,6 +191,7 @@ int main(void)
     oscFreq = 440.0f;
     oscOffset1 = 0;
     oscOffset2 = 0;
+    detune = 0;
     oldk1 = oldk2 = 0;
     k1 = k2   = 0;
     attack    = .01f;
@@ -201,7 +202,7 @@ int main(void)
     cutoff    = 10000;
     lfoAmp    = .01f;
     lfoFreq   = 0.1f;
-    selfCycle = true;
+    selfCycle = false;
     filterModEnv = 0;
 
     // Init everything
@@ -453,11 +454,12 @@ void UpdateKnobs()
     aPint_A = getAnalogPanelDigit(analogPanelA); 
     aPint_B = getAnalogPanelDigit(analogPanelB); 
     aPint_C = getAnalogPanelDigit(analogPanelC);
-    aPint_A += 12 * ((aPint_C + 1) / 3);
-    aPint_B += 12 * ((aPint_C) / 3); 
-    oscOffset1 = oscFreq * pow(2, (chordIntervals[aPint_A]/12.0));
-    oscOffset2 = oscFreq * pow(2, (chordIntervals[aPint_B]/12.0));
-    oscFreq = oscFreq * pow(2, ((aPint_C+2)/3));
+    aPint_A = chordIntervals[aPint_A] + 12 * (((aPint_C + 1) / 3) % 3);
+    aPint_B = chordIntervals[aPint_B] + 12 * (((aPint_C) / 3) % 3);
+
+    oscOffset1 = oscFreq * pow(2, (aPint_A/12.0));
+    oscOffset2 = oscFreq * pow(2, (aPint_B/12.0));
+    oscFreq = oscFreq * pow(2, ((aPint_C+2)/3) % 2);
 
 
 

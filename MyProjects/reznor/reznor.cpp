@@ -484,7 +484,7 @@ void UpdateKnobs()
     }
 
     if (buttonFmodEnv) {
-        filterModEnv = filterMax*(analogKnobE - 0.5);
+        filterModEnv = filterMax*(analogKnobE - 0.5)/2;
     }
 
     

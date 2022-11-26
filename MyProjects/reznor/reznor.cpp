@@ -452,9 +452,13 @@ void UpdateKnobs()
     analogPanelC = hardware.adc.GetFloat(7);
     aPint_A = getAnalogPanelDigit(analogPanelA); 
     aPint_B = getAnalogPanelDigit(analogPanelB); 
-    aPint_C = getAnalogPanelDigit(analogPanelC); 
+    aPint_C = getAnalogPanelDigit(analogPanelC);
+    aPint_A += 12 * ((aPint_C + 1) / 3);
+    aPint_B += 12 * ((aPint_C) / 3); 
     oscOffset1 = oscFreq * pow(2, (chordIntervals[aPint_A]/12.0));
     oscOffset2 = oscFreq * pow(2, (chordIntervals[aPint_B]/12.0));
+    oscFreq = oscFreq * pow(2, ((aPint_C+2)/3));
+
 
 
 

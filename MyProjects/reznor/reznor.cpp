@@ -27,6 +27,7 @@ float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 
 bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
+bool buttonFmode, buttonWave, buttonWave_last;
 
 float filterCutoff, filterModEnv, filterMax;
 
@@ -56,7 +57,9 @@ void ConditionalParameter(float  oldVal,
 
 void Controls();
 
-void updateMeters();
+void UpdateMeters();
+
+void UpdateWave();
 
 void UpdateIndividualButtons();
 
@@ -83,12 +86,17 @@ void NextSamples(float &sig)
     flt.SetFreq(std::min(filterMax, filterCutoff + (ad_out * filterModEnv)));
     sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
     flt.Process(sig);
-    sig = flt.Low();
+    if (buttonFmode) {
+        sig = flt.High();
+    }
+    else {
+        sig = flt.Low();
+    }
 
     if(wave == 3)
     {
         fract.SetFreq(fabsf(oscFreq));
-        fract.SetColor(fabsf(cutoff/20000));
+        fract.SetColor(fabsf(std::min(filterMax, filterCutoff + (ad_out * filterModEnv))/20000));
         sig = fract.Process();
     }
     
@@ -291,7 +299,12 @@ int main(void)
     // LedC.Write(get_bit(mcpButtonState, 2));
     // LedD.Write(get_bit(mcpButtonState, 3));
 
-    updateMeters();
+    UpdateMeters();
+
+    if (buttonWave && !buttonWave_last) {
+        UpdateWave();
+    }
+    buttonWave_last = buttonWave;
 
     if (buttonTrigger || (buttonCycle && !ad.IsRunning())) {
     //if (!ad.IsRunning()) {
@@ -315,9 +328,9 @@ void ConditionalParameter(float  oldVal,
 
 
 //Controls Helpers
-/* void UpdateEncoder()
+void UpdateWave()
 {
-    wave += pod.encoder.RisingEdge();
+    wave += 1;
     wave %= osc.WAVE_POLYBLEP_TRI;
 
     //skip ramp since it sounds like saw
@@ -329,12 +342,9 @@ void ConditionalParameter(float  oldVal,
     osc.SetWaveform(wave);
     osc1.SetWaveform(wave);
     osc2.SetWaveform(wave);
-
-
-    mode += pod.encoder.Increment();
-    mode = (mode % 6 + 6) % 6;
 }
 
+/* 
 void UpdateKnobs()
 {
     k1 = pod.knob1.Process();
@@ -433,11 +443,13 @@ void UpdateKnobs()
     if (buttonRel) {
         ad.SetTime(ADENV_SEG_DECAY, analogKnobB);
     }
+    if (!(buttonAtt || buttonRel)) {
+        detune = analogKnobB * 10;
+    }
 
     // Filter section
     if (buttonRes) {
         flt.SetRes(analogKnobD);
-
     }
     else {
         filterCutoff = analogKnobD * 20000;
@@ -445,13 +457,12 @@ void UpdateKnobs()
 
     if (buttonFmodEnv) {
         filterModEnv = filterMax*(analogKnobE - 0.5);
-        // if (filterModEnv > 0) {
-        //     filterModEnv *= 10;
-        // }
     }
+
+    
 }
 
-void updateMeters()
+void UpdateMeters()
 {
     hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
 	hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
@@ -465,6 +476,9 @@ void UpdateIndividualButtons()
     buttonAtt = get_bit(mcpButtonState, 4);
     buttonRel = get_bit(mcpButtonState, 5);
     buttonFmodEnv = get_bit(mcpButtonState, 9);
+    buttonFmode = get_bit(mcpButtonState, 13);
+    buttonWave = get_bit(mcpButtonState, 1);
+
 }
 
 

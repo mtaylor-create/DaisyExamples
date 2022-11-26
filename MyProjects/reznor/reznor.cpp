@@ -25,11 +25,12 @@ static Mcp23017 panelB[2];
 static Mcp23017 mcpButtons[2];
 float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
+int   aPint_A, aPint_B, aPint_C;
 
 bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
 bool buttonFmode, buttonWave, buttonWave_last;
 
-float filterCutoff, filterModEnv, filterMax;
+float filterCutoff, filterModEnv, filterMax, filterMin;
 
 // Outputs
 GPIO LedA, LedB, LedC, LedD;
@@ -37,6 +38,7 @@ GPIO LedA, LedB, LedC, LedD;
 // Globals
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
+float oscOffset1, oscOffset2;
 float detune;
 float revFeedback;
 float oldk1, oldk2, k1, k2;
@@ -49,6 +51,8 @@ float crushsl, crushsr;
 
 int   panelInputA, panelInputB;
 int   mcpButtonState;
+
+int   chordIntervals [] = {0, 3, 4, 6, 7, 8, 9, 10, 11, 12};
 
 void ConditionalParameter(float  oldVal,
                           float  newVal,
@@ -80,10 +84,12 @@ void NextSamples(float &sig)
     vibrato      = lfo.Process();
 
     osc.SetFreq(oscFreq + vibrato);
-    osc1.SetFreq(oscFreq + vibrato + detune);
-    osc2.SetFreq(oscFreq + vibrato - detune);
+    osc1.SetFreq(oscOffset1 + vibrato + detune);
+    osc2.SetFreq(oscOffset2 + vibrato - detune);
 
-    flt.SetFreq(std::min(filterMax, filterCutoff + (ad_out * filterModEnv)));
+    float sigCutoff = std::min(filterMax, filterCutoff + (ad_out * filterModEnv));
+    sigCutoff = std::max(filterMin, sigCutoff);
+    flt.SetFreq(sigCutoff);
     sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
     flt.Process(sig);
     if (buttonFmode) {
@@ -96,7 +102,7 @@ void NextSamples(float &sig)
     if(wave == 3)
     {
         fract.SetFreq(fabsf(oscFreq));
-        fract.SetColor(fabsf(std::min(filterMax, filterCutoff + (ad_out * filterModEnv))/20000));
+        fract.SetColor(fabsf(sigCutoff/10000));
         sig = fract.Process();
     }
     
@@ -172,6 +178,10 @@ int getPanelDigits(Mcp23017 mcp[2])
     return getPanelLSDs(mcp[0]) + 10000*getPanelMSD(mcp[1]);
 }
 
+int getAnalogPanelDigit(float fpv) {
+    return ((fpv + 0.056)*9);
+}
+
 int main(void)
 {
     // Set global variables
@@ -179,12 +189,15 @@ int main(void)
     mode    = 0;
     vibrato = 0.0f;
     oscFreq = 440.0f;
+    oscOffset1 = 0;
+    oscOffset2 = 0;
     oldk1 = oldk2 = 0;
     k1 = k2   = 0;
     attack    = .01f;
     release   = .2f;
     filterCutoff = 15000;
     filterMax = 32000;
+    filterMin = 1;
     cutoff    = 10000;
     lfoAmp    = .01f;
     lfoFreq   = 0.1f;
@@ -430,11 +443,20 @@ void UpdateKnobs()
     analogKnobC = hardware.adc.GetFloat(2);
     analogKnobD = hardware.adc.GetFloat(3);
     analogKnobE = hardware.adc.GetFloat(4);
+
+    oscFreq = analogKnobA * 2000;
+
+    // Analog Panel
     analogPanelA = hardware.adc.GetFloat(5);
     analogPanelB = hardware.adc.GetFloat(6);
     analogPanelC = hardware.adc.GetFloat(7);
+    aPint_A = getAnalogPanelDigit(analogPanelA); 
+    aPint_B = getAnalogPanelDigit(analogPanelB); 
+    aPint_C = getAnalogPanelDigit(analogPanelC); 
+    oscOffset1 = oscFreq * pow(2, (chordIntervals[aPint_A]/12.0));
+    oscOffset2 = oscFreq * pow(2, (chordIntervals[aPint_B]/12.0));
 
-    oscFreq = analogKnobA * 2000;
+
 
     // Env section
     if (buttonAtt) {

@@ -43,9 +43,10 @@ float detune;
 float revFeedback;
 float oldk1, oldk2, k1, k2;
 bool  selfCycle;
-float drywet = 0;
+float revDryWet = 0;
 int   crushcount = 0;
 float crushmod = 1;
+float crushDryWet = 0;
 float crushedSig;
 float crushsl, crushsr;
 
@@ -120,7 +121,8 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float sig;
         NextSamples(sig);
 
-        sig = GetCrushSample(sig);
+        //sig = GetCrushSample(sig);
+        sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
         GetReverbSample(out[i], out[i+1], sig, sig);
     }
 } 
@@ -435,14 +437,15 @@ void UpdateButtons()
 void UpdatePanels()
 {
     //reverb
-    drywet = getKthDigit(panelInputA, 0) / 9.0;
+    revDryWet = getKthDigit(panelInputA, 0) / 9.0;
     revFeedback = getKthDigit(panelInputA, 1) / 9.0;
     rev.SetFeedback(revFeedback);
 
     //crush
-    crushCutoff = 500 + 2500*getKthDigit(panelInputA, 2);
+    crushDryWet = getKthDigit(panelInputA, 2) / 9.0;
+    crushCutoff = 500 + 2500*getKthDigit(panelInputA, 3);
     tone.SetFreq(crushCutoff);
-    crushmod = pow(2, getKthDigit(panelInputA, 3));
+    crushmod = pow(2, getKthDigit(panelInputA, 4));
 
 }
 
@@ -564,6 +567,6 @@ float GetCrushSample(float sig)
 void GetReverbSample(float &outl, float &outr, float inl, float inr)
 {
     rev.Process(inl, inr, &outl, &outr);
-    outl = drywet * outl + (1 - drywet) * inl;
-    outr = drywet * outr + (1 - drywet) * inr;
+    outl = revDryWet * outl + (1 - revDryWet) * inl;
+    outr = revDryWet * outr + (1 - revDryWet) * inr;
 }

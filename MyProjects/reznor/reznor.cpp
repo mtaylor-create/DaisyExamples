@@ -28,7 +28,7 @@ float analogPanelA, analogPanelB, analogPanelC;
 int   aPint_A, aPint_B, aPint_C;
 
 bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
-bool buttonFmode, buttonWave, buttonWave_last;
+bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
 
@@ -49,6 +49,8 @@ float crushmod = 1;
 float crushDryWet = 0;
 float crushedSig;
 float crushsl, crushsr;
+float lfoPitchMod = 0;
+float lfoFiltMod = 0;
 
 int   panelInputA, panelInputB;
 int   mcpButtonState;
@@ -82,13 +84,16 @@ bool get_bit(int num, int position)
 void NextSamples(float &sig)
 {
     float ad_out = ad.Process();
-    vibrato      = lfo.Process();
+    float lfoOut    = lfo.Process();
+    vibrato = lfoOut*lfoPitchMod;
 
-    osc.SetFreq(oscFreq + vibrato);
-    osc1.SetFreq(oscOffset1 + vibrato + detune);
-    osc2.SetFreq(oscOffset2 + vibrato - detune);
+    osc.SetFreq(oscFreq * (1 + vibrato));
+    osc1.SetFreq((oscOffset1 + detune) * (1 + vibrato));
+    osc2.SetFreq((oscOffset2 - detune) * (1 + vibrato));
 
-    float sigCutoff = std::min(filterMax, filterCutoff + (ad_out * filterModEnv));
+    float sigCutoff = std::min(filterMax, filterCutoff 
+                                          + (ad_out * filterModEnv) 
+                                          + lfoOut*lfoFiltMod);
     sigCutoff = std::max(filterMin, sigCutoff);
     flt.SetFreq(sigCutoff);
     sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
@@ -205,7 +210,7 @@ int main(void)
     release   = .2f;
     filterCutoff = 15000;
     filterMax = 32000;
-    filterMin = 1;
+    filterMin = 10;
     cutoff    = 10000;
     lfoAmp    = .01f;
     lfoFreq   = 0.1f;
@@ -245,7 +250,7 @@ int main(void)
     // Filter params
     flt.SetFreq(filterCutoff);
     flt.SetRes(0);
-    flt.SetDrive(0.8);
+    flt.SetDrive(0.9);
 
     // Osc params
     osc.SetWaveform(osc.WAVE_SAW);
@@ -294,8 +299,8 @@ int main(void)
     rev.SetFeedback(0.85f);
 
     // Config i2c
-    configPanel(panelA, 0b100110, 0b100010);  
-    configPanel(panelB, 0b100111, 0b100011);  
+    configPanel(panelB, 0b100110, 0b100010);  
+    configPanel(panelA, 0b100111, 0b100011);  
     configPanel(mcpButtons, 0b100000, 0b100000);  
 
     // Start DAC
@@ -310,8 +315,8 @@ int main(void)
     hardware.StartAudio(AudioCallback);
 
     while(1) {
-    panelInputA = getPanelDigits(panelA);
     panelInputB = getPanelDigits(panelB);
+    panelInputA = getPanelDigits(panelA);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
     UpdateIndividualButtons();
 
@@ -437,16 +442,18 @@ void UpdateButtons()
 void UpdatePanels()
 {
     //reverb
-    revDryWet = getKthDigit(panelInputA, 0) / 9.0;
-    revFeedback = getKthDigit(panelInputA, 1) / 9.0;
+    revDryWet = getKthDigit(panelInputB, 0) / 9.0;
+    revFeedback = getKthDigit(panelInputB, 1) / 9.0;
     rev.SetFeedback(revFeedback);
 
     //crush
-    crushDryWet = getKthDigit(panelInputA, 2) / 9.0;
-    crushCutoff = 500 + 2500*getKthDigit(panelInputA, 3);
+    crushDryWet = getKthDigit(panelInputB, 2) / 9.0;
+    crushCutoff = 500 + 2500*getKthDigit(panelInputB, 3);
     tone.SetFreq(crushCutoff);
-    crushmod = pow(2, getKthDigit(panelInputA, 4));
+    crushmod = pow(2, getKthDigit(panelInputB, 4));
 
+    //chorus
+    
 }
 
 void UpdateButtons()
@@ -501,7 +508,19 @@ void UpdateKnobs()
     }
 
     if (buttonFmodEnv) {
-        filterModEnv = filterMax*(analogKnobE - 0.5)/2;
+        //filterModEnv = filterMax*(analogKnobE - 0.5)/2;
+        filterModEnv = pow(50*(analogKnobE - 0.5),3);
+    }
+
+    // LFO section
+    if (buttonLfoToPitch) {
+        lfoPitchMod = (pow(2, analogKnobC*2)-1);
+    }
+    if (buttonLfoToFilt) {
+        lfoFiltMod = (pow(2, analogKnobC*10)-1);
+    }
+    if (!(buttonLfoToPitch||buttonLfoToFilt)) {
+        lfo.SetFreq(pow(10, analogKnobC*5)/20);
     }
 
     
@@ -523,6 +542,8 @@ void UpdateIndividualButtons()
     buttonFmodEnv = get_bit(mcpButtonState, 9);
     buttonFmode = get_bit(mcpButtonState, 13);
     buttonWave = get_bit(mcpButtonState, 1);
+    buttonLfoToPitch = get_bit(mcpButtonState, 15);
+    buttonLfoToFilt = get_bit(mcpButtonState, 14);
 
 }
 

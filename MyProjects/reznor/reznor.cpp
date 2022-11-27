@@ -120,7 +120,7 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float sig;
         NextSamples(sig);
 
-        //sig = GetCrushSample(sig);
+        sig = GetCrushSample(sig);
         GetReverbSample(out[i], out[i+1], sig, sig);
     }
 } 
@@ -176,6 +176,11 @@ int getPanelMSD(Mcp23017 mcp)
 int getPanelDigits(Mcp23017 mcp[2])
 {
     return getPanelLSDs(mcp[0]) + 10000*getPanelMSD(mcp[1]);
+}
+
+int getKthDigit(int n, int k) {
+    int result = (n / pow(10, k));
+    return result % 10;
 }
 
 int getAnalogPanelDigit(float fpv) {
@@ -429,7 +434,16 @@ void UpdateButtons()
 
 void UpdatePanels()
 {
-    
+    //reverb
+    drywet = getKthDigit(panelInputA, 0) / 9.0;
+    revFeedback = getKthDigit(panelInputA, 1) / 9.0;
+    rev.SetFeedback(revFeedback);
+
+    //crush
+    crushCutoff = 500 + 2500*getKthDigit(panelInputA, 2);
+    tone.SetFreq(crushCutoff);
+    crushmod = pow(2, getKthDigit(panelInputA, 3));
+
 }
 
 void UpdateButtons()
@@ -529,7 +543,7 @@ void Controls()
     UpdateLeds();
 }
 
-/*
+
 float GetCrushSample(float sig)
 {
     if (crushmod<=1) {
@@ -545,7 +559,7 @@ float GetCrushSample(float sig)
     crushedSig = tone.Process(crushedSig);
     return crushedSig;
     //return tone.Process(crushedSig);
-} */
+}
 
 void GetReverbSample(float &outl, float &outr, float inl, float inr)
 {

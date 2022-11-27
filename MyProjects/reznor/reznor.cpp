@@ -19,6 +19,8 @@ static Tone                                      tone;
 ClockedNoise noise;
 FractalRandomGenerator<ClockedNoise, 5> fract;
 
+Chorus                chorus;
+
 // Controls
 static Mcp23017 panelA[2];
 static Mcp23017 panelB[2];
@@ -51,6 +53,8 @@ float crushedSig;
 float crushsl, crushsr;
 float lfoPitchMod = 0;
 float lfoFiltMod = 0;
+
+float chorusDryWet = 0;
 
 int   panelInputA, panelInputB;
 int   mcpButtonState;
@@ -124,11 +128,16 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
     for(size_t i = 0; i < size; i += 2)
     {
         float sig;
+        float sigL;
+        float sigR;
         NextSamples(sig);
 
         //sig = GetCrushSample(sig);
         sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
-        GetReverbSample(out[i], out[i+1], sig, sig);
+        chorus.Process(sig);
+        sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig)/2;
+        sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig)/2;
+        GetReverbSample(out[i], out[i+1], sigL, sigR);
     }
 } 
 
@@ -246,6 +255,8 @@ int main(void)
     lfo.Init(sample_rate);
     rev.Init(sample_rate);
     tone.Init(sample_rate);
+    chorus.Init(sample_rate);
+
 
     // Filter params
     flt.SetFreq(filterCutoff);
@@ -289,6 +300,12 @@ int main(void)
     drywetParam.Init(pod.knob1, 0, 1, drywetParam.LINEAR);
     crushrateParam.Init(pod.knob2, 0.9, 100, crushrateParam.LOGARITHMIC);
     detuneParam.Init(pod.knob2, 0, 10, detuneParam.LINEAR); */
+
+    // Chorus params
+    chorus.SetLfoFreq(.2f, .2f);
+    chorus.SetLfoDepth(1.f, 1.f);
+    chorus.SetDelay(.9f, .9f);
+    chorus.SetFeedback(0);
 
     // Crush params
     crushCutoff = 30000;
@@ -453,7 +470,10 @@ void UpdatePanels()
     crushmod = pow(2, getKthDigit(panelInputB, 4));
 
     //chorus
-    
+    chorus.SetLfoFreq(0.5 + 2 * getKthDigit(panelInputA, 4));
+    chorus.SetLfoDepth(getKthDigit(panelInputA, 3) / 9.0);
+    chorus.SetDelay(getKthDigit(panelInputA, 2) / 9.0);
+    chorusDryWet = getKthDigit(panelInputA, 0) / 9.0;
 }
 
 void UpdateButtons()

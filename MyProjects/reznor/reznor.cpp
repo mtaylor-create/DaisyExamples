@@ -31,9 +31,10 @@ int   aPint_A, aPint_B, aPint_C;
 
 bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
+bool buttonDrone;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
-
+float lfoOut = 0;
 // Outputs
 GPIO LedA, LedB, LedC, LedD;
 
@@ -88,17 +89,20 @@ bool get_bit(int num, int position)
 void NextSamples(float &sig)
 {
     float ad_out = ad.Process();
-    float lfoOut    = lfo.Process();
+    if (buttonDrone) {
+        ad_out = 1;
+    }
+    lfoOut    = lfo.Process();
     vibrato = lfoOut*lfoPitchMod;
 
     osc.SetFreq(oscFreq * (1 + vibrato));
     osc1.SetFreq((oscOffset1 + detune) * (1 + vibrato));
     osc2.SetFreq((oscOffset2 - detune) * (1 + vibrato));
 
-    float sigCutoff = std::min(filterMax, filterCutoff 
-                                          + (ad_out * filterModEnv) 
+    float sigCutoff = std::max(filterMin, filterCutoff 
+                                          + ((1-ad_out) * filterModEnv) 
                                           + lfoOut*lfoFiltMod);
-    sigCutoff = std::max(filterMin, sigCutoff);
+    sigCutoff = std::min(filterMax, sigCutoff);
     flt.SetFreq(sigCutoff);
     sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
     flt.Process(sig);
@@ -133,10 +137,12 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         NextSamples(sig);
 
         //sig = GetCrushSample(sig);
-        sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
+        //sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
         chorus.Process(sig);
         sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig)/2;
         sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig)/2;
+        sigL = (crushDryWet * GetCrushSample(sigL) + (1 - crushDryWet) * sigL)/2;
+        sigR = (crushDryWet * GetCrushSample(sigR) + (1 - crushDryWet) * sigR)/2;
         GetReverbSample(out[i], out[i+1], sigL, sigR);
     }
 } 
@@ -470,9 +476,11 @@ void UpdatePanels()
     crushmod = pow(2, getKthDigit(panelInputB, 4));
 
     //chorus
-    chorus.SetLfoFreq(0.5 + 2 * getKthDigit(panelInputA, 4));
+    //chorus.SetLfoFreq(0.5 + 2 * getKthDigit(panelInputA, 4));
+    chorus.SetLfoFreq(pow(2, getKthDigit(panelInputA, 4)) / 10.0);
     chorus.SetLfoDepth(getKthDigit(panelInputA, 3) / 9.0);
     chorus.SetDelay(getKthDigit(panelInputA, 2) / 9.0);
+    chorus.SetFeedback(getKthDigit(panelInputA, 1) / 9.5);
     chorusDryWet = getKthDigit(panelInputA, 0) / 9.0;
 }
 
@@ -524,12 +532,12 @@ void UpdateKnobs()
         flt.SetRes(analogKnobD);
     }
     else {
-        filterCutoff = analogKnobD * 20000;
+        filterCutoff = pow(2, 5 + analogKnobD * 10);
     }
 
     if (buttonFmodEnv) {
         //filterModEnv = filterMax*(analogKnobE - 0.5)/2;
-        filterModEnv = pow(50*(analogKnobE - 0.5),3);
+        filterModEnv = pow(40*(analogKnobE - 0.5),3);
     }
 
     // LFO section
@@ -548,8 +556,11 @@ void UpdateKnobs()
 
 void UpdateMeters()
 {
-    hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
-	hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
+    //hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
+	//hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
+	hardware.dac.WriteValue(DacHandle::Channel::ONE, (lfoOut+1) * 300);
+    hardware.dac.WriteValue(DacHandle::Channel::TWO, ad.GetValue() *650);
+
 }
 
 void UpdateIndividualButtons()
@@ -564,6 +575,8 @@ void UpdateIndividualButtons()
     buttonWave = get_bit(mcpButtonState, 1);
     buttonLfoToPitch = get_bit(mcpButtonState, 15);
     buttonLfoToFilt = get_bit(mcpButtonState, 14);
+    buttonDrone = get_bit(mcpButtonState, 2);
+
 
 }
 

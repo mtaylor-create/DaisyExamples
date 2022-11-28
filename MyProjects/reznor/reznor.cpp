@@ -11,7 +11,7 @@ static DaisySeed hardware;
 static Oscillator osc, osc1, osc2, lfo;
 //static MoogLadder flt;
 static Svf flt;
-static AdEnv      ad;
+static AdEnv      adVol, adFilt;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
                   drywetParam, crushrateParam, detuneParam;
 static ReverbSc                                  rev;
@@ -29,7 +29,8 @@ float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 int   aPint_A, aPint_B, aPint_C;
 
-bool buttonTrigger, buttonCycle, buttonRes, buttonAtt, buttonRel, buttonFmodEnv;
+bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
+bool buttonAttFilt, buttonRelFilt;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
 bool buttonDrone;
 
@@ -88,7 +89,7 @@ bool get_bit(int num, int position)
 
 void NextSamples(float &sig)
 {
-    float ad_out = ad.Process();
+    float ad_out = adVol.Process();
     if (buttonDrone) {
         ad_out = 1;
     }
@@ -99,8 +100,9 @@ void NextSamples(float &sig)
     osc1.SetFreq((oscOffset1 + detune) * (1 + vibrato));
     osc2.SetFreq((oscOffset2 - detune) * (1 + vibrato));
 
+    float ad_out_filt = adFilt.Process();
     float sigCutoff = std::max(filterMin, filterCutoff 
-                                          + ((1-ad_out) * filterModEnv) 
+                                          + (ad_out_filt * filterModEnv) 
                                           + lfoOut*lfoFiltMod);
     sigCutoff = std::min(filterMax, sigCutoff);
     flt.SetFreq(sigCutoff);
@@ -257,7 +259,8 @@ int main(void)
     osc1.Init(sample_rate);
     osc2.Init(sample_rate);
     flt.Init(sample_rate);
-    ad.Init(sample_rate);
+    adVol.Init(sample_rate);
+    adFilt.Init(sample_rate);
     lfo.Init(sample_rate);
     rev.Init(sample_rate);
     tone.Init(sample_rate);
@@ -288,11 +291,17 @@ int main(void)
     lfo.SetAmp(1);
 
     // Envelope params
-    ad.SetTime(ADENV_SEG_ATTACK, 0.01);
-    ad.SetTime(ADENV_SEG_DECAY, 1);
-    ad.SetMax(1);
-    ad.SetMin(0);
-    ad.SetCurve(0.5);
+    adVol.SetTime(ADENV_SEG_ATTACK, 0.01);
+    adVol.SetTime(ADENV_SEG_DECAY, 1);
+    adVol.SetMax(1);
+    adVol.SetMin(0);
+    adVol.SetCurve(0.5);
+
+    adFilt.SetTime(ADENV_SEG_ATTACK, 0.01);
+    adFilt.SetTime(ADENV_SEG_DECAY, 1);
+    adFilt.SetMax(1);
+    adFilt.SetMin(0);
+    adFilt.SetCurve(0.5);
 
     // Noise params
     fract.Init(sample_rate);
@@ -355,9 +364,10 @@ int main(void)
     }
     buttonWave_last = buttonWave;
 
-    if (buttonTrigger || (buttonCycle && !ad.IsRunning())) {
+    if (buttonTrigger || (buttonCycle && !adVol.IsRunning())) {
     //if (!ad.IsRunning()) {
-        ad.Trigger();
+        adVol.Trigger();
+        adFilt.Trigger();
     }
 
     }
@@ -516,14 +526,14 @@ void UpdateKnobs()
 
 
 
-    // Env section
-    if (buttonAtt) {
-        ad.SetTime(ADENV_SEG_ATTACK, analogKnobB);
+    // Vol env
+    if (buttonAttVol) {
+        adVol.SetTime(ADENV_SEG_ATTACK, 5*pow(analogKnobB, 2));
     }
-    if (buttonRel) {
-        ad.SetTime(ADENV_SEG_DECAY, analogKnobB);
+    if (buttonRelVol) {
+        adVol.SetTime(ADENV_SEG_DECAY, 5*pow(analogKnobB, 2));
     }
-    if (!(buttonAtt || buttonRel)) {
+    if (!(buttonAttVol || buttonRelVol)) {
         detune = analogKnobB * 10;
     }
 
@@ -535,7 +545,14 @@ void UpdateKnobs()
         filterCutoff = pow(2, 5 + analogKnobD * 10);
     }
 
-    if (buttonFmodEnv) {
+    // Filter env
+    if (buttonAttFilt) {
+        adFilt.SetTime(ADENV_SEG_ATTACK, 5*pow(analogKnobE, 2));
+    }
+    if (buttonRelFilt) {
+        adFilt.SetTime(ADENV_SEG_DECAY, 5*pow(analogKnobE, 2));
+    }
+    if (!(buttonAttFilt || buttonRelFilt)) {
         //filterModEnv = filterMax*(analogKnobE - 0.5)/2;
         filterModEnv = pow(40*(analogKnobE - 0.5),3);
     }
@@ -559,7 +576,7 @@ void UpdateMeters()
     //hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
 	//hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
 	hardware.dac.WriteValue(DacHandle::Channel::ONE, (lfoOut+1) * 300);
-    hardware.dac.WriteValue(DacHandle::Channel::TWO, ad.GetValue() *650);
+    hardware.dac.WriteValue(DacHandle::Channel::TWO, adVol.GetValue() *650);
 
 }
 
@@ -568,9 +585,10 @@ void UpdateIndividualButtons()
     buttonTrigger = get_bit(mcpButtonState, 0);
     buttonCycle = get_bit(mcpButtonState, 3);
     buttonRes = get_bit(mcpButtonState, 12);
-    buttonAtt = get_bit(mcpButtonState, 4);
-    buttonRel = get_bit(mcpButtonState, 5);
-    buttonFmodEnv = get_bit(mcpButtonState, 9);
+    buttonAttVol = get_bit(mcpButtonState, 4);
+    buttonRelVol = get_bit(mcpButtonState, 5);
+    buttonAttFilt = get_bit(mcpButtonState, 9);
+    buttonRelFilt = get_bit(mcpButtonState, 8);
     buttonFmode = get_bit(mcpButtonState, 13);
     buttonWave = get_bit(mcpButtonState, 1);
     buttonLfoToPitch = get_bit(mcpButtonState, 15);
@@ -585,8 +603,8 @@ void UpdateLeds()
 {
     LedA.Write(buttonTrigger);
     LedB.Write(buttonCycle);
-    LedC.Write(ad.IsRunning());
-    LedD.Write(ad.GetCurrentSegment() == 1);
+    LedC.Write(adVol.IsRunning());
+    LedD.Write(adVol.GetCurrentSegment() == 1);
 }
 
 void Controls()

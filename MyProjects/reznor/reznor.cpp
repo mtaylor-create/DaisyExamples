@@ -32,7 +32,7 @@ int   aPint_A, aPint_B, aPint_C;
 bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
 bool buttonAttFilt, buttonRelFilt;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
-bool buttonDrone;
+bool buttonDrone, buttonEffectsOn, buttonChaos;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
 float lfoOut = 0;
@@ -138,14 +138,20 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         float sigR;
         NextSamples(sig);
 
-        //sig = GetCrushSample(sig);
-        //sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
-        chorus.Process(sig);
-        sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig)/2;
-        sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig)/2;
-        sigL = (crushDryWet * GetCrushSample(sigL) + (1 - crushDryWet) * sigL)/2;
-        sigR = (crushDryWet * GetCrushSample(sigR) + (1 - crushDryWet) * sigR)/2;
-        GetReverbSample(out[i], out[i+1], sigL, sigR);
+        if (buttonEffectsOn) {
+            //sig = GetCrushSample(sig);
+            //sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
+            chorus.Process(sig);
+            sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig)/2;
+            sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig)/2;
+            sigL = (crushDryWet * GetCrushSample(sigL) + (1 - crushDryWet) * sigL)/2;
+            sigR = (crushDryWet * GetCrushSample(sigR) + (1 - crushDryWet) * sigR)/2;
+            GetReverbSample(out[i], out[i+1], sigL, sigR);
+        }
+        else {
+            out[i] = sig;
+            out[i+1] = sig;
+        }
     }
 } 
 
@@ -594,7 +600,8 @@ void UpdateIndividualButtons()
     buttonLfoToPitch = get_bit(mcpButtonState, 15);
     buttonLfoToFilt = get_bit(mcpButtonState, 14);
     buttonDrone = get_bit(mcpButtonState, 2);
-
+    buttonEffectsOn = get_bit(mcpButtonState, 11);
+    buttonChaos = get_bit(mcpButtonState, 10);
 
 }
 

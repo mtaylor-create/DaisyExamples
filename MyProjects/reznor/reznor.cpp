@@ -9,7 +9,7 @@ using namespace daisy::seed;
 // Daisy objects
 static DaisySeed hardware;
 static Oscillator osc, osc1, osc2, lfo;
-//static MoogLadder flt;
+static MoogLadder fltMoog;
 static Svf flt;
 static AdEnv      adVol, adFilt;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
@@ -32,7 +32,7 @@ int   aPint_A, aPint_B, aPint_C;
 bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
 bool buttonAttFilt, buttonRelFilt;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
-bool buttonDrone, buttonEffectsOn, buttonChaos;
+bool buttonDrone, buttonEffectsOn, buttonMultiOsc, buttonMoog;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
 float lfoOut = 0;
@@ -106,13 +106,25 @@ void NextSamples(float &sig)
                                           + lfoOut*lfoFiltMod);
     sigCutoff = std::min(filterMax, sigCutoff);
     flt.SetFreq(sigCutoff);
-    sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
-    flt.Process(sig);
-    if (buttonFmode) {
-        sig = flt.High();
+    fltMoog.SetFreq(sigCutoff);
+    if (buttonMultiOsc) {
+        sig = (osc.Process() + osc1.Process() + osc2.Process())/3;
     }
     else {
-        sig = flt.Low();
+        sig = osc.Process();
+    }
+
+    if (buttonMoog) {
+        sig = fltMoog.Process(sig);
+    }
+    else {
+        flt.Process(sig);
+        if (buttonFmode) {
+            sig = flt.High();
+        }
+        else {
+            sig = flt.Low();
+        }
     }
 
     if(wave == 3)
@@ -265,6 +277,7 @@ int main(void)
     osc1.Init(sample_rate);
     osc2.Init(sample_rate);
     flt.Init(sample_rate);
+    fltMoog.Init(sample_rate);
     adVol.Init(sample_rate);
     adFilt.Init(sample_rate);
     lfo.Init(sample_rate);
@@ -275,7 +288,9 @@ int main(void)
 
     // Filter params
     flt.SetFreq(filterCutoff);
+    fltMoog.SetFreq(filterCutoff);
     flt.SetRes(0);
+    fltMoog.SetRes(0.5);
     flt.SetDrive(0.9);
 
     // Osc params
@@ -546,6 +561,7 @@ void UpdateKnobs()
     // Filter section
     if (buttonRes) {
         flt.SetRes(analogKnobD);
+        fltMoog.SetRes(analogKnobD);
     }
     else {
         filterCutoff = pow(2, 5 + analogKnobD * 10);
@@ -600,8 +616,9 @@ void UpdateIndividualButtons()
     buttonLfoToPitch = get_bit(mcpButtonState, 15);
     buttonLfoToFilt = get_bit(mcpButtonState, 14);
     buttonDrone = get_bit(mcpButtonState, 2);
-    buttonEffectsOn = get_bit(mcpButtonState, 11);
-    buttonChaos = get_bit(mcpButtonState, 10);
+    buttonEffectsOn = get_bit(mcpButtonState, 10);
+    buttonMultiOsc = get_bit(mcpButtonState, 11);
+    buttonMoog = get_bit(mcpButtonState, 6);
 
 }
 

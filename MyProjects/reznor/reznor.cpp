@@ -383,6 +383,7 @@ int main(void)
     {
         /** Pull the oldest one from the list... */
         auto msg = midi.PopEvent();
+        //midiTrigger = false;
         switch(msg.type)
         {
             case NoteOn:
@@ -397,10 +398,10 @@ int main(void)
                     midiTrigger = false;
                 }
             }
-            case NoteOff:
-            {
-                midiTrigger = false;
-            }
+            //case NoteOff:
+            //{
+            //    midiTrigger = false;
+            //}
             break;
                 // Since we only care about note-on messages in this example
                 // we'll ignore all other message types

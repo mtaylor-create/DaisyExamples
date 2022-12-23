@@ -8,6 +8,7 @@ using namespace daisy::seed;
 
 // Daisy objects
 static DaisySeed hardware;
+MidiUsbHandler midi;
 static Oscillator osc, osc1, osc2, lfo;
 static MoogLadder fltMoog;
 static Svf flt;
@@ -254,6 +255,12 @@ int main(void)
 
     // Init everything
     hardware.Init();
+    MidiUsbHandler::Config midi_cfg;
+    midi_cfg.transport_config.periph = MidiUsbTransport::Config::INTERNAL;
+    midi.Init(midi_cfg);
+
+
+
     AdcChannelConfig adcConfig[8];
     adcConfig[0].InitSingle(hardware.GetPin(19));
     adcConfig[1].InitSingle(hardware.GetPin(18));
@@ -368,6 +375,28 @@ int main(void)
     hardware.StartAudio(AudioCallback);
 
     while(1) {
+    midi.Listen();
+    while(midi.HasEvents())
+    {
+        /** Pull the oldest one from the list... */
+        auto msg = midi.PopEvent();
+        switch(msg.type)
+        {
+            case NoteOn:
+            {
+                /** and change the frequency of the oscillator */
+                auto note_msg = msg.AsNoteOn();
+                if(note_msg.velocity != 0)
+                    oscFreq = mtof(note_msg.note);
+            }
+            break;
+                // Since we only care about note-on messages in this example
+                // we'll ignore all other message types
+            default: break;
+        }
+    }
+
+
     panelInputB = getPanelDigits(panelB);
     panelInputA = getPanelDigits(panelA);
     mcpButtonState = getMcpButtons(mcpButtons[0]);
@@ -528,7 +557,7 @@ void UpdateKnobs()
     analogKnobD = hardware.adc.GetFloat(3);
     analogKnobE = hardware.adc.GetFloat(4);
 
-    oscFreq = analogKnobA * 2000;
+    //oscFreq = analogKnobA * 2000;
 
     // Analog Panel
     analogPanelA = hardware.adc.GetFloat(5);

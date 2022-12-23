@@ -39,7 +39,7 @@ float filterCutoff, filterModEnv, filterMax, filterMin;
 float lfoOut = 0;
 float gain = 1;
 // Outputs
-GPIO LedA, LedB, LedC, LedD;
+GPIO ModeA, ModeB, LedA, LedB, LedC, LedD;
 
 // Globals
 int   wave, mode;
@@ -274,6 +274,9 @@ int main(void)
     hardware.adc.Init(adcConfig, 8);
     hardware.adc.Start();
 
+
+    ModeA.Init(D5, GPIO::Mode::INPUT);
+    ModeB.Init(D6, GPIO::Mode::INPUT);
     LedA.Init(D7, GPIO::Mode::OUTPUT);
     LedB.Init(D8, GPIO::Mode::OUTPUT);
     LedC.Init(D9, GPIO::Mode::OUTPUT);
@@ -387,8 +390,17 @@ int main(void)
             {
                 /** and change the frequency of the oscillator */
                 auto note_msg = msg.AsNoteOn();
-                if(note_msg.velocity != 0)
+                if(note_msg.velocity != 0) {
                     oscFreq = mtof(note_msg.note);
+                    buttonTrigger = true;
+                }
+                else {
+                    buttonTrigger = false;
+                }
+            }
+            case NoteOff:
+            {
+                buttonTrigger = false;
             }
             break;
                 // Since we only care about note-on messages in this example

@@ -34,6 +34,7 @@ bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
 bool buttonAttFilt, buttonRelFilt;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
 bool buttonDrone, buttonEffectsOn, buttonMultiOsc, buttonMoog, buttonVol;
+bool midiTrigger;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
 float lfoOut = 0;
@@ -153,8 +154,6 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
         NextSamples(sig);
 
         if (buttonEffectsOn) {
-            //sig = GetCrushSample(sig);
-            //sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
             chorus.Process(sig);
             sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig);
             sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig);
@@ -392,15 +391,15 @@ int main(void)
                 auto note_msg = msg.AsNoteOn();
                 if(note_msg.velocity != 0) {
                     oscFreq = mtof(note_msg.note);
-                    buttonTrigger = true;
+                    midiTrigger = true;
                 }
                 else {
-                    buttonTrigger = false;
+                    midiTrigger = false;
                 }
             }
             case NoteOff:
             {
-                buttonTrigger = false;
+                midiTrigger = false;
             }
             break;
                 // Since we only care about note-on messages in this example
@@ -415,11 +414,6 @@ int main(void)
     mcpButtonState = getMcpButtons(mcpButtons[0]);
     UpdateIndividualButtons();
 
-    // LedA.Write(get_bit(mcpButtonState, 0));
-    // LedB.Write(get_bit(mcpButtonState, 1));
-    // LedC.Write(get_bit(mcpButtonState, 2));
-    // LedD.Write(get_bit(mcpButtonState, 3));
-
     UpdateMeters();
 
     if (buttonWave && !buttonWave_last) {
@@ -427,7 +421,11 @@ int main(void)
     }
     buttonWave_last = buttonWave;
 
-    if (buttonTrigger || (buttonCycle && !adVol.IsRunning())) {
+    if (buttonTrigger) {
+        midiTrigger = false;
+    }
+    
+    if (midiTrigger || buttonTrigger || (buttonCycle && !adVol.IsRunning())) {
     //if (!ad.IsRunning()) {
         adVol.Trigger();
         adFilt.Trigger();
@@ -466,75 +464,6 @@ void UpdateWave()
     osc2.SetWaveform(wave);
 }
 
-/* 
-void UpdateKnobs()
-{
-    k1 = pod.knob1.Process();
-    k2 = pod.knob2.Process();
-
-    switch(mode)
-    {
-        case 0:
-            ConditionalParameter(oldk1, k1, cutoff, cutoffParam.Process());
-            ConditionalParameter(oldk2, k2, oscFreq, pitchParam.Process());
-            flt.SetFreq(cutoff);
-            break;
-        case 1:
-            ConditionalParameter(oldk1, k1, attack, pod.knob1.Process());
-            ConditionalParameter(oldk2, k2, release, pod.knob2.Process());
-            ad.SetTime(ADENV_SEG_ATTACK, attack);
-            ad.SetTime(ADENV_SEG_DECAY, release);
-            break;
-        case 2:
-            ConditionalParameter(oldk1, k1, lfoFreq, lfoParam.Process());
-            ConditionalParameter(oldk2, k2, lfoAmp, pod.knob2.Process());
-            lfo.SetFreq(lfoFreq);
-            lfo.SetAmp(lfoAmp * 100);
-            break;
-        case 3:
-            ConditionalParameter(oldk1, k1, crushCutoff, crushCutoffParam.Process());
-            ConditionalParameter(oldk2, k2, crushmod, crushrateParam.Process());
-            tone.SetFreq(crushCutoff);
-            //crushmod = (int)crushrateParam.Process();
-            break;
-        case 4:
-            ConditionalParameter(oldk1, k1, drywet, drywetParam.Process());
-            ConditionalParameter(oldk2, k2, revFeedback, pod.knob2.Process());
-            rev.SetFeedback(revFeedback);
-            break;
-        case 5:
-            ConditionalParameter(oldk2, k2, detune, detuneParam.Process());
-
-        default: break;
-    }
-}
-
-void UpdateLeds()
-{
-    pod.led1.Set(mode == 2 || mode == 3 || mode == 5, 
-                 mode == 1 || mode == 3 || mode == 4, 
-                 mode == 0 || mode == 4 || mode == 5);
-    pod.led2.Set(0, selfCycle, selfCycle);
-
-    oldk1 = k1;
-    oldk2 = k2;
-
-    pod.UpdateLeds();
-}
-
-void UpdateButtons()
-{
-    if(pod.button1.RisingEdge() || (selfCycle && !ad.IsRunning()))
-    {
-        ad.Trigger();
-    }
-
-    if(pod.button2.RisingEdge())
-    {
-        selfCycle = !selfCycle;
-    }
-}*/
-
 void UpdatePanels()
 {
     //reverb
@@ -549,17 +478,11 @@ void UpdatePanels()
     crushmod = pow(2, getKthDigit(panelInputB, 4));
 
     //chorus
-    //chorus.SetLfoFreq(0.5 + 2 * getKthDigit(panelInputA, 4));
     chorus.SetLfoFreq(pow(2, getKthDigit(panelInputA, 4)) / 10.0);
     chorus.SetLfoDepth(getKthDigit(panelInputA, 3) / 9.0);
     chorus.SetDelay(getKthDigit(panelInputA, 2) / 9.0);
     chorus.SetFeedback(getKthDigit(panelInputA, 1) / 9.5);
     chorusDryWet = getKthDigit(panelInputA, 0) / 9.0;
-}
-
-void UpdateButtons()
-{
-    
 }
 
 void UpdateKnobs()
@@ -642,8 +565,6 @@ void UpdateKnobs()
 
 void UpdateMeters()
 {
-    //hardware.dac.WriteValue(DacHandle::Channel::ONE, analogKnobC*650);
-	//hardware.dac.WriteValue(DacHandle::Channel::TWO, analogKnobB*650);
 	hardware.dac.WriteValue(DacHandle::Channel::ONE, (lfoOut+1) * 300);
     hardware.dac.WriteValue(DacHandle::Channel::TWO, adVol.GetValue() *650);
 
@@ -673,7 +594,7 @@ void UpdateIndividualButtons()
 
 void UpdateLeds()
 {
-    LedA.Write(buttonTrigger);
+    LedA.Write(midiTrigger);
     LedB.Write(buttonCycle);
     LedC.Write(adVol.IsRunning());
     LedD.Write(adVol.GetCurrentSegment() == 1);
@@ -682,8 +603,6 @@ void UpdateLeds()
 void Controls()
 {
     UpdatePanels();
-
-    UpdateButtons();
 
     UpdateKnobs();
 

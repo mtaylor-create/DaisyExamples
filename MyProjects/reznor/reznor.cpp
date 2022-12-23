@@ -33,17 +33,18 @@ int   aPint_A, aPint_B, aPint_C;
 bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
 bool buttonAttFilt, buttonRelFilt;
 bool buttonFmode, buttonWave, buttonWave_last, buttonLfoToPitch, buttonLfoToFilt;
-bool buttonDrone, buttonEffectsOn, buttonMultiOsc, buttonMoog;
+bool buttonDrone, buttonEffectsOn, buttonMultiOsc, buttonMoog, buttonVol;
 
 float filterCutoff, filterModEnv, filterMax, filterMin;
 float lfoOut = 0;
+float gain = 1;
 // Outputs
 GPIO LedA, LedB, LedC, LedD;
 
 // Globals
 int   wave, mode;
 float vibrato, oscFreq, lfoFreq, lfoAmp, attack, release, cutoff, crushCutoff;
-float oscOffset1, oscOffset2;
+float oscOffset0, oscOffset1, oscOffset2;
 float detune;
 float revFeedback;
 float oldk1, oldk2, k1, k2;
@@ -97,7 +98,7 @@ void NextSamples(float &sig)
     lfoOut    = lfo.Process();
     vibrato = lfoOut*lfoPitchMod;
 
-    osc.SetFreq(oscFreq * (1 + vibrato));
+    osc.SetFreq(oscOffset0 * (1 + vibrato));
     osc1.SetFreq((oscOffset1 + detune) * (1 + vibrato));
     osc2.SetFreq((oscOffset2 - detune) * (1 + vibrato));
 
@@ -130,7 +131,7 @@ void NextSamples(float &sig)
 
     if(wave == 3)
     {
-        fract.SetFreq(fabsf(oscFreq));
+        fract.SetFreq(fabsf(oscOffset0));
         fract.SetColor(fabsf(sigCutoff/10000));
         sig = fract.Process();
     }
@@ -155,15 +156,15 @@ static void AudioCallback(AudioHandle::InterleavingInputBuffer  in,
             //sig = GetCrushSample(sig);
             //sig = (crushDryWet * GetCrushSample(sig) + (1 - crushDryWet) * sig)/2;
             chorus.Process(sig);
-            sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig)/2;
-            sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig)/2;
-            sigL = (crushDryWet * GetCrushSample(sigL) + (1 - crushDryWet) * sigL)/2;
-            sigR = (crushDryWet * GetCrushSample(sigR) + (1 - crushDryWet) * sigR)/2;
+            sigL = (chorusDryWet * chorus.GetLeft() + (1 - chorusDryWet) * sig);
+            sigR = (chorusDryWet * chorus.GetRight() + (1 - chorusDryWet) * sig);
+            sigL = gain * (crushDryWet * GetCrushSample(sigL) + (1 - crushDryWet) * sigL);
+            sigR = gain * (crushDryWet * GetCrushSample(sigR) + (1 - crushDryWet) * sigR);
             GetReverbSample(out[i], out[i+1], sigL, sigR);
         }
         else {
-            out[i] = sig;
-            out[i+1] = sig;
+            out[i] = gain * sig;
+            out[i+1] = gain * sig;
         }
     }
 } 
@@ -557,7 +558,12 @@ void UpdateKnobs()
     analogKnobD = hardware.adc.GetFloat(3);
     analogKnobE = hardware.adc.GetFloat(4);
 
-    //oscFreq = analogKnobA * 2000;
+    if (buttonVol) {
+        oscFreq = analogKnobA * 2000;
+    }
+    else {
+        gain = pow(2,analogKnobA * 2);
+    }
 
     // Analog Panel
     analogPanelA = hardware.adc.GetFloat(5);
@@ -571,7 +577,7 @@ void UpdateKnobs()
 
     oscOffset1 = oscFreq * pow(2, (aPint_A/12.0));
     oscOffset2 = oscFreq * pow(2, (aPint_B/12.0));
-    oscFreq = oscFreq * pow(2, ((aPint_C+2)/3) % 2);
+    oscOffset0 = oscFreq * pow(2, ((aPint_C+2)/3) % 2);
 
 
 
@@ -648,6 +654,7 @@ void UpdateIndividualButtons()
     buttonEffectsOn = get_bit(mcpButtonState, 10);
     buttonMultiOsc = get_bit(mcpButtonState, 11);
     buttonMoog = get_bit(mcpButtonState, 6);
+    buttonVol = get_bit(mcpButtonState, 7);
 
 }
 

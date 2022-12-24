@@ -12,7 +12,8 @@ MidiUsbHandler midi;
 static Oscillator osc, osc1, osc2, lfo;
 static MoogLadder fltMoog;
 static Svf flt;
-static AdEnv      adVol, adFilt;
+//static AdEnv      adVol, adFilt;
+static Adsr      adVol, adFilt;
 static Parameter  pitchParam, cutoffParam, crushCutoffParam, lfoParam, 
                   drywetParam, crushrateParam, detuneParam;
 static ReverbSc                                  rev;
@@ -29,6 +30,7 @@ static Mcp23017 mcpButtons[2];
 float analogKnobA, analogKnobB, analogKnobC, analogKnobD, analogKnobE;
 float analogPanelA, analogPanelB, analogPanelC;
 int   aPint_A, aPint_B, aPint_C;
+float ad_out = 0;
 
 bool buttonTrigger, buttonCycle, buttonRes, buttonAttVol, buttonRelVol;
 bool buttonAttFilt, buttonRelFilt;
@@ -92,7 +94,7 @@ bool get_bit(int num, int position)
 
 void NextSamples(float &sig)
 {
-    float ad_out = adVol.Process();
+    ad_out = adVol.Process(buttonTrigger || (buttonCycle && (adVol.GetCurrentSegment()==ADSR_SEG_ATTACK)));
     if (buttonDrone) {
         ad_out = 1;
     }
@@ -103,7 +105,7 @@ void NextSamples(float &sig)
     osc1.SetFreq((oscOffset1 + detune) * (1 + vibrato));
     osc2.SetFreq((oscOffset2 - detune) * (1 + vibrato));
 
-    float ad_out_filt = adFilt.Process();
+    float ad_out_filt = adFilt.Process(buttonTrigger || (buttonCycle && (adFilt.GetCurrentSegment()==ADSR_SEG_ATTACK)));
     float sigCutoff = std::max(filterMin, filterCutoff 
                                           + (ad_out_filt * filterModEnv) 
                                           + lfoOut*lfoFiltMod);
@@ -322,17 +324,21 @@ int main(void)
     lfo.SetAmp(1);
 
     // Envelope params
-    adVol.SetTime(ADENV_SEG_ATTACK, 0.01);
-    adVol.SetTime(ADENV_SEG_DECAY, 1);
-    adVol.SetMax(1);
-    adVol.SetMin(0);
-    adVol.SetCurve(0.5);
+    adVol.SetTime(ADSR_SEG_ATTACK, 0.01);
+    adVol.SetTime(ADSR_SEG_DECAY, 1);
+    adVol.SetTime(ADSR_SEG_RELEASE, 1);
+    adVol.SetSustainLevel(0.8);
+    //adVol.SetMax(1);
+    //adVol.SetMin(0);
+    //adVol.SetCurve(0.5);
 
-    adFilt.SetTime(ADENV_SEG_ATTACK, 0.01);
-    adFilt.SetTime(ADENV_SEG_DECAY, 1);
-    adFilt.SetMax(1);
-    adFilt.SetMin(0);
-    adFilt.SetCurve(0.5);
+    adFilt.SetTime(ADSR_SEG_ATTACK, 0.01);
+    adFilt.SetTime(ADSR_SEG_DECAY, 1);
+    adFilt.SetTime(ADSR_SEG_RELEASE, 1);
+    adFilt.SetSustainLevel(1.0);
+    //adFilt.SetMax(1);
+    //adFilt.SetMin(0);
+    //adFilt.SetCurve(0.5);
 
     // Noise params
     fract.Init(sample_rate);
@@ -378,6 +384,7 @@ int main(void)
     hardware.StartAudio(AudioCallback);
 
     while(1) {
+    midiTrigger = false;
     midi.Listen();
     while(midi.HasEvents())
     {
@@ -426,10 +433,12 @@ int main(void)
         midiTrigger = false;
     }
     
-    if (midiTrigger || buttonTrigger || (buttonCycle && !adVol.IsRunning())) {
+    //if (midiTrigger || buttonTrigger || buttonCycle) {
+    //if (midiTrigger || buttonTrigger || (buttonCycle && !adVol.IsRunning())) {
     //if (!ad.IsRunning()) {
-        adVol.Trigger();
-        adFilt.Trigger();
+    if (midiTrigger || (buttonCycle && !adVol.IsRunning())) {
+        adVol.Retrigger(midiTrigger);
+        adFilt.Retrigger(midiTrigger);
     }
 
     }
@@ -520,10 +529,12 @@ void UpdateKnobs()
 
     // Vol env
     if (buttonAttVol) {
-        adVol.SetTime(ADENV_SEG_ATTACK, 5*pow(analogKnobB, 2));
+        adVol.SetTime(ADSR_SEG_ATTACK, 5*pow(analogKnobB, 2));
     }
     if (buttonRelVol) {
-        adVol.SetTime(ADENV_SEG_DECAY, 5*pow(analogKnobB, 2));
+        adVol.SetTime(ADSR_SEG_DECAY, 5*pow(analogKnobB, 2));
+        adVol.SetTime(ADSR_SEG_RELEASE, 5*pow(analogKnobB, 2));
+
     }
     if (!(buttonAttVol || buttonRelVol)) {
         detune = analogKnobB * 10;
@@ -540,10 +551,11 @@ void UpdateKnobs()
 
     // Filter env
     if (buttonAttFilt) {
-        adFilt.SetTime(ADENV_SEG_ATTACK, 5*pow(analogKnobE, 2));
+        adFilt.SetTime(ADSR_SEG_ATTACK, 5*pow(analogKnobE, 2));
     }
     if (buttonRelFilt) {
-        adFilt.SetTime(ADENV_SEG_DECAY, 5*pow(analogKnobE, 2));
+        adFilt.SetTime(ADSR_SEG_DECAY, 5*pow(analogKnobE, 2));
+        adFilt.SetTime(ADSR_SEG_RELEASE, 5*pow(analogKnobE, 2));
     }
     if (!(buttonAttFilt || buttonRelFilt)) {
         //filterModEnv = filterMax*(analogKnobE - 0.5)/2;
@@ -567,7 +579,7 @@ void UpdateKnobs()
 void UpdateMeters()
 {
 	hardware.dac.WriteValue(DacHandle::Channel::ONE, (lfoOut+1) * 300);
-    hardware.dac.WriteValue(DacHandle::Channel::TWO, adVol.GetValue() *650);
+    hardware.dac.WriteValue(DacHandle::Channel::TWO, ad_out *650);
 
 }
 
